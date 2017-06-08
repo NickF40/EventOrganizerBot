@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Scheduled posts for {{ event_name }}</h1>
+<div class="card">
+    <h2>Schedule a new post</h2>
+    <form method="post">
+        <label>Title
+            <input type="text" name="title" required />
+        </label>
+        <label>Content
+            <textarea name="content" rows="4" required></textarea>
+        </label>
+        <label>Send at
+            <input type="datetime-local" name="send_at" required />
+        </label>
+        <button type="submit">Plan post</button>
+    </form>
+</div>
+<div class="flex">
+    <div class="card">
+        <h2>Upcoming posts</h2>
+        {% if upcoming %}
+            <table>
+                <thead>
+                    <tr><th>Title</th><th>Send at</th></tr>
+                </thead>
+                <tbody>
+                {% for post in upcoming %}
+                    <tr>
+                        <td>{{ post.title }}</td>
+                        <td>{{ post.send_at }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No posts scheduled yet.</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h2>Recently sent</h2>
+        {% if sent %}
+            <table>
+                <thead>
+                    <tr><th>Title</th><th>Sent at</th></tr>
+                </thead>
+                <tbody>
+                {% for post in sent %}
+                    <tr>
+                        <td>{{ post.title }}</td>
+                        <td>{{ post.sent_at }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No posts sent yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

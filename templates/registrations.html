@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Registrations</h1>
+<div class="card">
+    <h2>Manual addition</h2>
+    <form method="post" action="/admin/registrations/manual">
+        <div class="flex">
+            <div>
+                <label>Display name
+                    <input type="text" name="display_name" required />
+                </label>
+            </div>
+            <div>
+                <label>Contact info
+                    <input type="text" name="contact" placeholder="Email, phone, etc." />
+                </label>
+            </div>
+            <div>
+                <label>Category
+                    <select name="category_value" required>
+                        <option value="attendee">Attendee</option>
+                        <option value="lecturer">Lecturer</option>
+                        <option value="showcase">Project showcase</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+        <label>Notes
+            <textarea name="notes" rows="2"></textarea>
+        </label>
+        <label>
+            <input type="checkbox" name="priority" value="true" checked /> Priority attendee (ignore limit)
+        </label>
+        <button type="submit">Add attendee</button>
+    </form>
+</div>
+<div class="card">
+    <h2>Attendees</h2>
+    {% if attendees %}
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Status</th><th>Priority</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            {% for registration in attendees %}
+                <tr>
+                    <td>{{ registration.user.display_name }}{% if registration.user.contact %}<br/><small>{{ registration.user.contact }}</small>{% endif %}</td>
+                    <td>{{ registration.status.value }}</td>
+                    <td>{{ 'Yes' if registration.is_priority else 'No' }}</td>
+                    <td>{{ registration.notes or '' }}</td>
+                    <td>
+                        <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                            <input type="hidden" name="status_value" value="approved" />
+                            <input type="hidden" name="priority" value="false" />
+                            <button type="submit">Approve</button>
+                        </form>
+                        <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                            <input type="hidden" name="status_value" value="approved" />
+                            <input type="hidden" name="priority" value="true" />
+                            <button class="secondary" type="submit">Approve as priority</button>
+                        </form>
+                        <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                            <input type="hidden" name="status_value" value="waitlisted" />
+                            <button class="secondary" type="submit">Waitlist</button>
+                        </form>
+                        <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                            <input type="hidden" name="status_value" value="rejected" />
+                            <button class="danger" type="submit">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No attendees yet.</p>
+    {% endif %}
+</div>
+<div class="card">
+    <h2>Lecturers & showcases</h2>
+    {% if lecturers %}
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Category</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            {% for registration in lecturers %}
+                <tr>
+                    <td>{{ registration.user.display_name }}{% if registration.user.contact %}<br/><small>{{ registration.user.contact }}</small>{% endif %}</td>
+                    <td>{{ registration.category.value }}</td>
+                    <td>{{ registration.status.value }}</td>
+                    <td>{{ registration.notes or '' }}</td>
+                    <td>
+                        <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                            <input type="hidden" name="status_value" value="approved" />
+                            <button type="submit">Approve</button>
+                        </form>
+                        <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                            <input type="hidden" name="status_value" value="pending" />
+                            <button class="secondary" type="submit">Reset</button>
+                        </form>
+                        <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                            <input type="hidden" name="status_value" value="rejected" />
+                            <button class="danger" type="submit">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No lecturer or showcase registrations yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

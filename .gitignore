@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+.env
+.ruff_cache/
+.pytest_cache/
+.uv/
+config.yaml
+.idea/

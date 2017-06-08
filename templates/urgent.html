@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Urgent notification</h1>
+<div class="card">
+    <form method="post">
+        <label>Message to send everyone
+            <textarea name="message" rows="4" required>{{ message or '' }}</textarea>
+        </label>
+        <button type="submit">Send now</button>
+    </form>
+    {% if delivered is not none %}
+        <p class="success">Delivered to {{ delivered }} users.</p>
+    {% endif %}
+</div>
+{% endblock %}

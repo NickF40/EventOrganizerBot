@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>{{ title or 'Admin' }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f8; }
+        header { background: #2d3748; color: white; padding: 1rem 2rem; }
+        nav a { color: white; margin-right: 1rem; text-decoration: none; }
+        main { padding: 2rem; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        th, td { border: 1px solid #cbd5e0; padding: 0.5rem; text-align: left; }
+        th { background: #edf2f7; }
+        form.inline { display: inline; }
+        .card { background: white; padding: 1rem; margin-bottom: 1.5rem; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .success { color: #2f855a; }
+        .danger { color: #c53030; }
+        label { display: block; margin-top: 0.5rem; }
+        input[type="text"], textarea, input[type="datetime-local"] { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+        button { background: #3182ce; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+        button.danger { background: #c53030; }
+        button.secondary { background: #4a5568; }
+        .flex { display: flex; gap: 1rem; }
+        .flex > div { flex: 1; }
+    </style>
+</head>
+<body>
+<header>
+    <nav>
+        <a href="/admin/posts">Scheduled Posts</a>
+        <a href="/admin/registrations">Registrations</a>
+        <a href="/admin/urgent">Urgent message</a>
+    </nav>
+</header>
+<main>
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>
