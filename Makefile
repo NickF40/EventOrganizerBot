@@ -26,3 +26,6 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+docker-test:
+	docker compose run --rm app uv run pytest

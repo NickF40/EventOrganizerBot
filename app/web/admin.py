@@ -1,6 +1,7 @@
 import asyncio
 import secrets
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -21,7 +22,11 @@ from app.services import admin as admin_service
 from app.services.events import get_or_create_default_event
 from app.services.messaging import broadcast_message
 from app.services.posts import schedule_post
-from app.services.registrations import CapacityError, update_registration_status
+from app.services.registrations import (
+    CapacityError,
+    get_approved_attendee_count,
+    update_registration_status,
+)
 
 
 templates = Jinja2Templates(directory="templates")
@@ -49,6 +54,11 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             )
         return credentials.username
 
+    def redirect_with_message(path: str, message: str) -> RedirectResponse:
+        return RedirectResponse(
+            f"{path}?msg={quote(message)}", status_code=status.HTTP_303_SEE_OTHER
+        )
+
     @app.get("/")
     async def index(_: str = Depends(admin_auth)):
         return RedirectResponse(url="/admin/posts", status_code=status.HTTP_302_FOUND)
@@ -57,6 +67,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     async def posts(
         request: Request, _: str = Depends(admin_auth), session: Session = Depends(get_session)
     ):
+        tz = settings.tzinfo
         upcoming = (
             session.execute(
                 select(ScheduledPost)
@@ -66,6 +77,16 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             .scalars()
             .all()
         )
+        upcoming_view = [
+            {
+                "id": post.id,
+                "title": post.title,
+                "content": post.content,
+                "send_at": post.send_at,
+                "send_at_local": post.send_at.astimezone(tz),
+            }
+            for post in upcoming
+        ]
         sent = (
             session.execute(
                 select(ScheduledPost)
@@ -76,13 +97,25 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             .scalars()
             .all()
         )
+        sent_view = [
+            {
+                "id": post.id,
+                "title": post.title,
+                "content": post.content,
+                "sent_at": post.sent_at,
+                "sent_at_local": post.sent_at.astimezone(tz) if post.sent_at else None,
+            }
+            for post in sent
+        ]
         return templates.TemplateResponse(
             "posts.html",
             {
                 "request": request,
-                "upcoming": upcoming,
-                "sent": sent,
+                "upcoming": upcoming_view,
+                "sent": sent_view,
                 "event_name": settings.event_name,
+                "timezone": settings.timezone,
+                "flash": request.query_params.get("msg"),
             },
         )
 
@@ -102,10 +135,34 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date format"
             ) from exc
         if send_at_dt.tzinfo is None:
-            send_at_dt = send_at_dt.replace(tzinfo=timezone.utc)
+            send_at_dt = send_at_dt.replace(tzinfo=settings.tzinfo)
 
-        schedule_post(session, title=title, content=content, send_at=send_at_dt)
-        return RedirectResponse("/admin/posts", status_code=status.HTTP_303_SEE_OTHER)
+        schedule_post(
+            session,
+            title=title,
+            content=content,
+            send_at=send_at_dt.astimezone(timezone.utc),
+        )
+        return redirect_with_message("/admin/posts", "Scheduled new post")
+
+    @app.post("/admin/posts/{post_id}/cancel")
+    async def cancel_post(
+        request: Request,
+        post_id: int,
+        _: str = Depends(admin_auth),
+        session: Session = Depends(get_session),
+    ):
+        post = session.get(ScheduledPost, post_id)
+        if not post:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        if post.sent_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot cancel a post that has already been sent",
+            )
+        session.delete(post)
+        session.flush()
+        return redirect_with_message("/admin/posts", "Post cancelled")
 
     @app.get("/admin/registrations")
     async def registrations(
@@ -113,6 +170,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        event = get_or_create_default_event(session, settings)
         attendees = (
             session.execute(
                 select(Registration)
@@ -135,6 +193,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             .scalars()
             .all()
         )
+        attendee_count = get_approved_attendee_count(session, event)
         return templates.TemplateResponse(
             "registrations.html",
             {
@@ -142,6 +201,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 "attendees": attendees,
                 "lecturers": lecturers,
                 "RegistrationStatus": RegistrationStatus,
+                "event": event,
+                "approved_attendee_count": attendee_count,
+                "flash": request.query_params.get("msg"),
             },
         )
 
@@ -194,6 +256,22 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 )
 
         return RedirectResponse("/admin/registrations", status_code=status.HTTP_303_SEE_OTHER)
+
+    @app.post("/admin/registrations/{registration_id}/delete")
+    async def delete_registration(
+        request: Request,
+        registration_id: int,
+        _: str = Depends(admin_auth),
+        session: Session = Depends(get_session),
+    ):
+        registration = session.get(Registration, registration_id)
+        if not registration:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Registration not found"
+            )
+        session.delete(registration)
+        session.flush()
+        return redirect_with_message("/admin/registrations", "Registration deleted")
 
     @app.post("/admin/registrations/manual")
     async def add_manual_registration(
@@ -250,5 +328,39 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 "message": message,
             },
         )
+
+    @app.post("/admin/event/limit")
+    async def update_limit(
+        request: Request,
+        limit: str = Form(...),
+        _: str = Depends(admin_auth),
+        session: Session = Depends(get_session),
+    ):
+        event = get_or_create_default_event(session, settings)
+
+        normalized = limit.strip()
+        if not normalized:
+            event.capacity = None
+            object.__setattr__(settings, "attendee_limit", None)
+            message = "Attendee limit removed"
+        else:
+            try:
+                new_limit = int(normalized)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Limit must be an integer",
+                ) from exc
+            if new_limit < 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Limit must be zero or greater",
+                )
+            event.capacity = new_limit
+            object.__setattr__(settings, "attendee_limit", new_limit)
+            message = "Attendee limit updated"
+
+        session.flush()
+        return redirect_with_message("/admin/registrations", message)
 
     return app

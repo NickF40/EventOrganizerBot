@@ -1,6 +1,4 @@
 import asyncio
-from contextlib import suppress
-
 import uvicorn
 
 from app.config import get_settings
@@ -29,23 +27,27 @@ async def run() -> None:
     )
     server = uvicorn.Server(config)
 
-    bot_task = asyncio.create_task(application.run_polling(close_loop=False))
-    server_task = asyncio.create_task(server.serve())
+    await application.initialize()
+    if application.post_init:
+        await application.post_init(application)
+    await application.updater.start_polling()
+    await application.start()
 
     try:
-        await asyncio.wait({bot_task, server_task}, return_when=asyncio.FIRST_COMPLETED)
+        await server.serve()
     finally:
         stop_scheduler(scheduler)
-        if not bot_task.done():
-            bot_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await bot_task
-        await application.stop()
+        if application.updater.running:
+            await application.updater.stop()
+        if application.running:
+            await application.stop()
+            if application.post_stop:
+                await application.post_stop(application)
         await application.shutdown()
+        if application.post_shutdown:
+            await application.post_shutdown(application)
         if not server.should_exit:
             server.should_exit = True
-        if not server_task.done():
-            await server_task
 
 
 def main() -> None:

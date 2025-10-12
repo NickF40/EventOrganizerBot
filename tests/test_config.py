@@ -1,5 +1,7 @@
 import pytest
+
 from app.config import Settings, get_settings
+from app import utils
 
 
 def test_parse_admin_ids_from_string():
@@ -25,6 +27,9 @@ basic_auth_password: secret
         """
     )
     monkeypatch.setenv("CONFIG_FILE", str(config_path))
+    monkeypatch.setenv("TELEGRAM_TOKEN", "test-token")
+    monkeypatch.setenv("ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "secret")
 
     settings = get_settings()
 
@@ -33,3 +38,27 @@ basic_auth_password: secret
     assert 123 in settings.admin_id_set
 
     monkeypatch.delenv("CONFIG_FILE", raising=False)
+
+
+def test_config_path_accepts_directory(tmp_path, monkeypatch):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config_file = config_dir / "config.yaml"
+    config_file.write_text("telegram_token: x")
+
+    monkeypatch.setenv("CONFIG_FILE", str(config_dir))
+
+    try:
+        assert utils.config_path() == config_file
+    finally:
+        monkeypatch.delenv("CONFIG_FILE", raising=False)
+
+
+def test_config_path_falls_back_to_search_paths(tmp_path, monkeypatch):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("telegram_token: x")
+
+    monkeypatch.delenv("CONFIG_FILE", raising=False)
+    monkeypatch.setattr(utils, "CONFIG_SEARCH_PATHS", (tmp_path,))
+
+    assert utils.config_path() == config_file

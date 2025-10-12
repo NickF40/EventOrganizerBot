@@ -46,13 +46,39 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings = get_settings()
 
     with session_scope() as session:
-        get_or_create_user(session, user)
-        get_or_create_default_event(session, settings)
+        db_user = get_or_create_user(session, user)
+        event = get_or_create_default_event(session, settings)
+        registrations = (
+            session.execute(
+                select(Registration)
+                .where(Registration.user_id == db_user.id)
+                .where(Registration.event_id == event.id)
+            )
+            .scalars()
+            .all()
+        )
 
-    welcome_text = (
-        f"Hi {user.first_name or user.full_name or user.username}!\n\n"
-        f"Welcome to the {settings.event_name} bot. Choose how you'd like to participate."
-    )
+    if registrations:
+        lines: list[str] = []
+        for registration in registrations:
+            status_text = registration.status.value.replace("_", " ").title()
+            if registration.status == RegistrationStatus.WAITLISTED:
+                status_text += " (waiting list)"
+            elif registration.status == RegistrationStatus.APPROVED:
+                status_text += " (approved)"
+            lines.append(f"• {registration.category.value.title()}: {status_text}")
+        summary = "\n".join(lines)
+        welcome_text = (
+            f"Welcome back, {user.first_name or user.full_name or user.username}!\n\n"
+            "We already have you registered:\n"
+            f"{summary}\n\n"
+            "Use /status any time for the latest updates or pick another option below."
+        )
+    else:
+        welcome_text = (
+            f"Hi {user.first_name or user.full_name or user.username}!\n\n"
+            f"Welcome to the {settings.event_name} bot. Choose how you'd like to participate."
+        )
     await context.bot.send_message(
         chat_id=chat.id, text=welcome_text, reply_markup=build_registration_keyboard()
     )

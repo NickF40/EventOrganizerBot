@@ -16,7 +16,7 @@ class RegistrationResult:
     waitlisted: bool
 
 
-def _approved_attendee_count_query(event: Event) -> Select[tuple[int]]:
+def approved_attendee_count_query(event: Event) -> Select[tuple[int]]:
     return (
         select(func.count(Registration.id))
         .where(Registration.event_id == event.id)
@@ -26,7 +26,7 @@ def _approved_attendee_count_query(event: Event) -> Select[tuple[int]]:
 
 
 def get_approved_attendee_count(session: Session, event: Event) -> int:
-    return session.scalar(_approved_attendee_count_query(event)) or 0
+    return session.scalar(approved_attendee_count_query(event)) or 0
 
 
 def find_registration(
