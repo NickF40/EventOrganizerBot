@@ -4,7 +4,7 @@ import uvicorn
 from app.config import get_settings
 from app.database import Base, engine
 from app.scheduler import start_scheduler, stop_scheduler
-from app.telegram.bot import build_application
+from app.telebot.bot import build_application
 from app.web.admin import create_app
 
 

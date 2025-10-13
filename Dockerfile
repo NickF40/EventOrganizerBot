@@ -8,7 +8,8 @@ RUN uv sync --no-dev
 
 COPY . .
 
-ENV CONFIG_FILE=/app/config.yaml
+ENV CONFIG_FILE=/app/config.yaml \
+    PYTHONPATH=/app
 EXPOSE 8000
 
 CMD ["uv", "run", "python", "-m", "app.main"]

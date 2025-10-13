@@ -62,3 +62,21 @@ def test_config_path_falls_back_to_search_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(utils, "CONFIG_SEARCH_PATHS", (tmp_path,))
 
     assert utils.config_path() == config_file
+
+
+def test_set_timezone_respects_read_only_file(tmp_path, monkeypatch):
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("timezone: UTC\n")
+    config_file.chmod(0o400)
+
+    monkeypatch.setenv("CONFIG_FILE", str(config_file))
+    settings = Settings(
+        telegram_token="token",
+        basic_auth_username="admin",
+        basic_auth_password="secret",
+    )
+
+    persisted = settings.set_timezone("Europe/London")
+
+    assert persisted is False
+    assert settings.timezone == "Europe/London"

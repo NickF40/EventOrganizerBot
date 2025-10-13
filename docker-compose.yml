@@ -7,6 +7,8 @@ services:
       - "8000:8000"
     environment:
       CONFIG_FILE: /app/config.yaml
+      PYTHONPATH: /app
     volumes:
+      - .:/app
       - ./config.yaml:/app/config.yaml:ro
     command: ["uv", "run", "python", "-m", "app.main"]

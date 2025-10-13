@@ -15,6 +15,9 @@ lint:
 test:
 	uv run pytest
 
+coverage:
+	uv run pytest --cov=app --cov-report=term-missing
+
 run:
 	uv run python -m app.main
 
@@ -28,4 +31,4 @@ docker-down:
 	docker compose down
 
 docker-test:
-	docker compose run --rm app uv run pytest
+	docker compose run --rm --build app uv run pytest

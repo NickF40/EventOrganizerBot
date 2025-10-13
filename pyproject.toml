@@ -24,11 +24,12 @@ dev = [
   "black>=24.4",
   "ruff>=0.4.2",
   "pytest>=8.2",
+  "pytest-cov>=4.1",
 ]
 
 [tool.pytest.ini_options]
 addopts = "-q"
-pythonpath = ["app"]
+pythonpath = ["."]
 
 [tool.black]
 line-length = 100

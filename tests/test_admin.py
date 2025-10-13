@@ -14,8 +14,8 @@ os.environ.setdefault("TELEGRAM_TOKEN", "dummy-token")
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "secret")
 
-sys.modules.setdefault("telegram", types.SimpleNamespace(Bot=object))
-sys.modules.setdefault("telegram.error", types.SimpleNamespace(TelegramError=Exception))
+sys.modules.setdefault("telebot", types.SimpleNamespace(Bot=object))
+sys.modules.setdefault("telebot.error", types.SimpleNamespace(TelegramError=Exception))
 
 import app.config as app_config
 from app.config import Settings
@@ -157,6 +157,86 @@ def test_create_post_schedules(admin_client, monkeypatch):
     assert kwargs["title"] == "Hello"
     assert kwargs["content"] == "World"
     assert kwargs["send_at"].tzinfo is not None
+
+
+def test_update_limit_removes_capacity(admin_client):
+    client, app, _ = admin_client
+    session = MagicMock()
+    event = SimpleNamespace(capacity=123)
+    session.scalar.return_value = event
+    session.flush = MagicMock()
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    response = client.post(
+        "/admin/event/limit",
+        data={"limit": "   "},
+        auth=("admin", "secret"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "Attendee%20limit%20removed" in response.headers["location"]
+    assert event.capacity is None
+    assert app.state.settings.attendee_limit is None
+    session.flush.assert_called_once()
+
+
+def test_update_limit_sets_new_capacity(admin_client):
+    client, app, _ = admin_client
+    session = MagicMock()
+    event = SimpleNamespace(capacity=None)
+    session.scalar.return_value = event
+    session.flush = MagicMock()
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    response = client.post(
+        "/admin/event/limit",
+        data={"limit": "25"},
+        auth=("admin", "secret"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "Attendee%20limit%20updated" in response.headers["location"]
+    assert event.capacity == 25
+    assert app.state.settings.attendee_limit == 25
+    session.flush.assert_called_once()
+
+
+def test_update_limit_requires_integer(admin_client):
+    client, app, _ = admin_client
+    session = MagicMock()
+    event = SimpleNamespace(capacity=None)
+    session.scalar.return_value = event
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    response = client.post(
+        "/admin/event/limit",
+        data={"limit": "many"},
+        auth=("admin", "secret"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Limit must be an integer"
+
+
+def test_update_limit_disallows_negative_values(admin_client):
+    client, app, _ = admin_client
+    session = MagicMock()
+    event = SimpleNamespace(capacity=None)
+    session.scalar.return_value = event
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    response = client.post(
+        "/admin/event/limit",
+        data={"limit": "-1"},
+        auth=("admin", "secret"),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Limit must be zero or greater"
 
 
 def test_update_timezone_changes_setting(admin_client):

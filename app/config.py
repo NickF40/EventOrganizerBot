@@ -1,3 +1,5 @@
+import os
+import stat
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, List
@@ -100,6 +102,14 @@ class Settings(BaseSettings):
 
         data = self.load_from_yaml()
         data[key] = value
+
+        if path.exists():
+            permissions = stat.S_IMODE(path.stat().st_mode)
+            writable_mask = stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+            if permissions & writable_mask == 0:
+                return False
+            if not os.access(path, os.W_OK):
+                return False
         try:
             path.write_text(
                 yaml.safe_dump(data, sort_keys=True, allow_unicode=True),

@@ -103,3 +103,4 @@ def update_registration_status(
     registration.status = status
     if is_priority is not None:
         registration.is_priority = is_priority
+    session.flush()
