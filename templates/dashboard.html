@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(56,189,248,0.1));">
+    <div class="flex" style="align-items: center;">
+        <div style="flex: 2; min-width: 260px;">
+            <h1 style="margin-bottom: 0.35rem;">Event overview</h1>
+            <p class="help-text" style="font-size: 1rem;">
+                Quick snapshot of attendance, capacity and scheduled communications.
+            </p>
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.9rem;">
+                <span class="pill">Timezone: {{ timezone }}</span>
+                {% if not timezone_persisted %}
+                    <span class="help-text warning">Changes are kept in memory only.</span>
+                {% endif %}
+            </div>
+        </div>
+        <div style="display: grid; gap: 0.75rem; min-width: 220px;">
+            <div class="stat-card">
+                <span class="metric-label">Pending review</span>
+                <span class="metric-value">{{ status_summary['pending'] }}</span>
+            </div>
+            <div class="stat-card">
+                <span class="metric-label">Current limit</span>
+                <span class="metric-value">
+                    {% if event.capacity is not none %}
+                        {{ event.capacity }}
+                    {% else %}
+                        <span class="tag">No limit</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="metric-label">Approved</span>
+        <span class="metric-value">{{ status_summary['approved'] }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="metric-label">Priority approvals</span>
+        <span class="metric-value">{{ status_summary['approved_priority'] }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="metric-label">Waitlisted</span>
+        <span class="metric-value">{{ status_summary['waitlisted'] }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="metric-label">Declined</span>
+        <span class="metric-value">{{ status_summary['declined'] }}</span>
+    </div>
+</div>
+
+<div class="flex">
+    <div class="card" style="flex: 1.2;">
+        <h2>Event summary</h2>
+        <ul class="info-list">
+            <li><strong>Attendee limit:</strong>
+                {% if event.capacity is not none %}
+                    {{ event.capacity }}
+                {% else %}
+                    <span class="tag">No limit set</span>
+                {% endif %}
+            </li>
+            <li><strong>Waiting to be processed:</strong> {{ status_summary['pending'] }}</li>
+        </ul>
+        <h3 style="margin-top: 1.75rem;">Registrations by category</h3>
+        <ul class="info-list">
+            {% for name, count in category_summary.items() %}
+                <li><strong>{{ name|title }}:</strong> {{ count }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="card" style="flex: 1;">
+        <h2>Upcoming posts</h2>
+        <p class="help-text">All times are displayed in {{ timezone }}.</p>
+        {% if upcoming %}
+            <table>
+                <thead>
+                    <tr><th>Title</th><th>Scheduled</th></tr>
+                </thead>
+                <tbody>
+                {% for post in upcoming %}
+                    <tr>
+                        <td>{{ post.title }}</td>
+                        <td>{{ post.send_at_local }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No upcoming posts scheduled.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

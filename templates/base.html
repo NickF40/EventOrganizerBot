@@ -5,35 +5,340 @@
     <title>{{ title or 'Admin' }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f8; }
-        header { background: #2d3748; color: white; padding: 1rem 2rem; }
-        nav a { color: white; margin-right: 1rem; text-decoration: none; }
-        main { padding: 2rem; }
-        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        th, td { border: 1px solid #cbd5e0; padding: 0.5rem; text-align: left; }
-        th { background: #edf2f7; }
-        form.inline { display: inline; }
-        .card { background: white; padding: 1rem; margin-bottom: 1.5rem; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-        .success { color: #2f855a; }
-        .danger { color: #c53030; }
-        label { display: block; margin-top: 0.5rem; }
-        input[type="text"], textarea, input[type="datetime-local"] { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
-        button { background: #3182ce; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-        button.danger { background: #c53030; }
-        button.secondary { background: #4a5568; }
-        .flex { display: flex; gap: 1rem; }
-        .flex > div { flex: 1; }
+        :root {
+            color-scheme: light;
+            --bg-surface: #ffffff;
+            --bg-muted: #f2f4fb;
+            --gradient-start: #2b6cb0;
+            --gradient-end: #4a5568;
+            --text-primary: #1f2937;
+            --text-muted: #4b5563;
+            --border-color: #d8dee9;
+            --accent: #2b6cb0;
+            --accent-soft: rgba(43, 108, 176, 0.1);
+            --danger: #c53030;
+            --warning: #b7791f;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Segoe UI", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: var(--bg-muted);
+            color: var(--text-primary);
+        }
+        header {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            padding: 1.5rem 2.5rem;
+            box-shadow: 0 8px 24px rgba(31, 45, 61, 0.12);
+        }
+        .nav-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        nav a,
+        nav summary {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.4rem 0.8rem;
+            border-radius: 999px;
+            transition: background 0.2s ease, color 0.2s ease;
+            cursor: pointer;
+            list-style: none;
+        }
+        nav a:hover,
+        nav summary:hover,
+        .nav-dropdown[open] > summary {
+            background: rgba(255, 255, 255, 0.18);
+        }
+        .nav-dropdown {
+            position: relative;
+        }
+        .nav-dropdown summary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .nav-dropdown summary::-webkit-details-marker {
+            display: none;
+        }
+        .nav-dropdown summary::after {
+            content: "▾";
+            font-size: 0.7rem;
+        }
+        .dropdown-panel {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 0.35rem);
+            min-width: 220px;
+            padding: 0.75rem;
+            background: rgba(15, 23, 42, 0.92);
+            border-radius: 12px;
+            box-shadow: 0 18px 32px rgba(15, 23, 42, 0.25);
+            display: grid;
+            gap: 0.35rem;
+        }
+        .dropdown-panel a {
+            color: rgba(255, 255, 255, 0.92);
+            font-weight: 500;
+            border-radius: 8px;
+        }
+        .dropdown-panel a:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        main {
+            padding: 2.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .flash {
+            background: rgba(251, 191, 36, 0.15);
+            color: var(--warning);
+            padding: 0.85rem 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.75rem;
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            backdrop-filter: blur(6px);
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 1rem;
+            background: var(--bg-surface);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        th,
+        td {
+            border: 1px solid var(--border-color);
+            padding: 0.65rem 0.75rem;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background: rgba(43, 108, 176, 0.08);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+        form.inline {
+            display: inline;
+        }
+        .card {
+            background: var(--bg-surface);
+            padding: 1.75rem;
+            margin-bottom: 1.75rem;
+            border-radius: 18px;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+        label {
+            display: block;
+            margin-top: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        input[type="text"],
+        textarea,
+        input[type="datetime-local"],
+        select {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            margin-top: 0.4rem;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            transition: border 0.2s ease, box-shadow 0.2s ease;
+            background: #fff;
+        }
+        input[type="text"]:focus,
+        textarea:focus,
+        input[type="datetime-local"]:focus,
+        select:focus {
+            outline: none;
+            border-color: rgba(43, 108, 176, 0.5);
+            box-shadow: 0 0 0 4px var(--accent-soft);
+        }
+        textarea {
+            font-family: inherit;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.65rem 1.2rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+        }
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(43, 108, 176, 0.25);
+        }
+        button.danger {
+            background: var(--danger);
+        }
+        button.secondary {
+            background: #4a5568;
+        }
+        .flex {
+            display: flex;
+            gap: 1.2rem;
+            flex-wrap: wrap;
+        }
+        .flex > div {
+            flex: 1;
+            min-width: 240px;
+        }
+        .metrics-grid,
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+        .metric-card,
+        .stat-card {
+            background: var(--bg-surface);
+            border-radius: 16px;
+            padding: 1.1rem 1.3rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+        }
+        .metric-card .metric-label,
+        .stat-card .metric-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+        .metric-card .metric-value,
+        .stat-card .metric-value {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .info-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+            display: grid;
+            gap: 0.5rem;
+        }
+        .info-list li {
+            margin: 0;
+        }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.12);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .table-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+        }
+        .timezone-form {
+            display: grid;
+            gap: 0.75rem;
+        }
+        .help-text {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 0.35rem;
+        }
+        .help-text.warning {
+            color: var(--warning);
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.3rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(79, 70, 229, 0.12);
+            color: rgba(55, 48, 163, 0.95);
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        @media (max-width: 900px) {
+            header {
+                padding: 1.25rem 1.75rem;
+            }
+            .nav-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            nav {
+                flex-wrap: wrap;
+                justify-content: flex-start;
+            }
+            .dropdown-panel {
+                position: static;
+                background: rgba(15, 23, 42, 0.85);
+                width: 100%;
+                margin-top: 0.5rem;
+            }
+        }
+        @media (max-width: 768px) {
+            main {
+                padding: 1.5rem 1.25rem;
+            }
+        }
     </style>
 </head>
 <body>
 <header>
-    <nav>
-        <a href="/admin/posts">Scheduled Posts</a>
-        <a href="/admin/registrations">Registrations</a>
-        <a href="/admin/urgent">Urgent message</a>
-    </nav>
+    <div class="nav-bar">
+        <div class="nav-brand">Event admin</div>
+        <nav>
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/posts">Scheduled posts</a>
+            <details class="nav-dropdown">
+                <summary>Registrations</summary>
+                <div class="dropdown-panel">
+                    <a href="/admin/registrations">Pending</a>
+                    <a href="/admin/registrations/approved">Approved</a>
+                    <a href="/admin/registrations/approved-priority">Priority</a>
+                    <a href="/admin/registrations/waitlisted">Waitlisted</a>
+                    <a href="/admin/registrations/declined">Declined</a>
+                </div>
+            </details>
+            <a href="/admin/urgent">Urgent message</a>
+        </nav>
+    </div>
 </header>
 <main>
+    {% if flash %}
+        <div class="flash">{{ flash }}</div>
+    {% endif %}
     {% block content %}{% endblock %}
 </main>
 </body>

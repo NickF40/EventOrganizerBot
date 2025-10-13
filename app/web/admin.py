@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -59,15 +59,104 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             f"{path}?msg={quote(message)}", status_code=status.HTTP_303_SEE_OTHER
         )
 
+    def safe_redirect_path(path: str | None, fallback: str) -> str:
+        if not path:
+            return fallback
+        if not path.startswith("/"):
+            return fallback
+        if not path.startswith("/admin"):
+            return fallback
+        return path
+
+    def format_local(dt: datetime | None) -> str | None:
+        if dt is None:
+            return None
+        return dt.astimezone(settings.tzinfo).strftime("%Y-%m-%d %H:%M")
+
     @app.get("/")
     async def index(_: str = Depends(admin_auth)):
-        return RedirectResponse(url="/admin/posts", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
+
+    @app.get("/admin")
+    async def dashboard(
+        request: Request, _: str = Depends(admin_auth), session: Session = Depends(get_session)
+    ):
+        event = get_or_create_default_event(session, settings)
+        status_rows = (
+            session.execute(
+                select(Registration.status, func.count(Registration.id))
+                .where(Registration.event_id == event.id)
+                .group_by(Registration.status)
+            )
+            .all()
+        )
+        status_counts = {status: count for status, count in status_rows}
+        priority_count = (
+            session.scalar(
+                select(func.count(Registration.id))
+                .where(Registration.event_id == event.id)
+                .where(Registration.status == RegistrationStatus.APPROVED)
+                .where(Registration.is_priority.is_(True))
+            )
+            or 0
+        )
+        category_rows = (
+            session.execute(
+                select(Registration.category, func.count(Registration.id))
+                .where(Registration.event_id == event.id)
+                .group_by(Registration.category)
+            )
+            .all()
+        )
+        category_counts = {category.value: count for category, count in category_rows}
+        upcoming = (
+            session.execute(
+                select(ScheduledPost)
+                .where(ScheduledPost.sent_at.is_(None))
+                .order_by(ScheduledPost.send_at.asc())
+                .limit(5)
+            )
+            .scalars()
+            .all()
+        )
+        upcoming_view = [
+            {
+                "id": post.id,
+                "title": post.title,
+                "content": post.content,
+                "send_at_local": format_local(post.send_at),
+            }
+            for post in upcoming
+        ]
+        status_summary = {
+            "approved": status_counts.get(RegistrationStatus.APPROVED, 0),
+            "approved_priority": priority_count,
+            "waitlisted": status_counts.get(RegistrationStatus.WAITLISTED, 0),
+            "declined": status_counts.get(RegistrationStatus.REJECTED, 0),
+            "pending": status_counts.get(RegistrationStatus.PENDING, 0),
+        }
+        category_summary = {
+            category.value: category_counts.get(category.value, 0)
+            for category in RegistrationCategory
+        }
+        return templates.TemplateResponse(
+            "dashboard.html",
+            {
+                "request": request,
+                "event": event,
+                "status_summary": status_summary,
+                "category_summary": category_summary,
+                "upcoming": upcoming_view,
+                "timezone": settings.timezone,
+                "timezone_persisted": settings.can_persist_timezone,
+                "flash": request.query_params.get("msg"),
+            },
+        )
 
     @app.get("/admin/posts")
     async def posts(
         request: Request, _: str = Depends(admin_auth), session: Session = Depends(get_session)
     ):
-        tz = settings.tzinfo
         upcoming = (
             session.execute(
                 select(ScheduledPost)
@@ -82,8 +171,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 "id": post.id,
                 "title": post.title,
                 "content": post.content,
-                "send_at": post.send_at,
-                "send_at_local": post.send_at.astimezone(tz),
+                "send_at_local": format_local(post.send_at),
             }
             for post in upcoming
         ]
@@ -102,8 +190,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 "id": post.id,
                 "title": post.title,
                 "content": post.content,
-                "sent_at": post.sent_at,
-                "sent_at_local": post.sent_at.astimezone(tz) if post.sent_at else None,
+                "sent_at_local": format_local(post.sent_at),
             }
             for post in sent
         ]
@@ -115,6 +202,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 "sent": sent_view,
                 "event_name": settings.event_name,
                 "timezone": settings.timezone,
+                "timezone_persisted": settings.can_persist_timezone,
                 "flash": request.query_params.get("msg"),
             },
         )
@@ -145,6 +233,36 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         )
         return redirect_with_message("/admin/posts", "Scheduled new post")
 
+    @app.post("/admin/settings/timezone")
+    async def update_timezone(
+        timezone_value: str = Form(...),
+        return_to: str | None = Form(None),
+        _: str = Depends(admin_auth),
+    ):
+        normalized = timezone_value.strip()
+        if not normalized:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Timezone is required",
+            )
+
+        try:
+            persisted = settings.set_timezone(normalized)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+        suffix = ""
+        if not persisted:
+            suffix = " (not saved to disk)"
+
+        redirect_path = safe_redirect_path(return_to, "/admin")
+        return redirect_with_message(
+            redirect_path, f"Timezone updated to {normalized}{suffix}"
+        )
+
     @app.post("/admin/posts/{post_id}/cancel")
     async def cancel_post(
         request: Request,
@@ -164,47 +282,256 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         session.flush()
         return redirect_with_message("/admin/posts", "Post cancelled")
 
+    def make_action(
+        label: str,
+        status_value: str,
+        *,
+        priority: bool | None = None,
+        css_class: str | None = None,
+    ) -> dict[str, str | bool | None]:
+        return {
+            "label": label,
+            "status": status_value,
+            "priority": priority,
+            "class": css_class or "",
+        }
+
+    def serialize_registration(
+        registration: Registration, actions: list[dict[str, str | bool | None]]
+    ) -> dict[str, object]:
+        return {
+            "id": registration.id,
+            "name": registration.user.display_name,
+            "contact": registration.user.contact,
+            "category": registration.category.value,
+            "status": registration.status.value,
+            "priority": registration.is_priority,
+            "notes": registration.notes or "",
+            "actions": actions,
+        }
+
+    def render_registration_page(
+        request: Request,
+        session: Session,
+        *,
+        event,
+        registrations: list[Registration],
+        title: str,
+        table_title: str,
+        empty_message: str,
+        actions_builder,
+        show_manual_form: bool = False,
+        allow_delete: bool = False,
+    ):
+        registration_views = [
+            serialize_registration(registration, actions_builder(registration))
+            for registration in registrations
+        ]
+        pending_count = (
+            session.scalar(
+                select(func.count(Registration.id))
+                .where(Registration.event_id == event.id)
+                .where(Registration.status == RegistrationStatus.PENDING)
+            )
+            or 0
+        )
+        return templates.TemplateResponse(
+            "registrations_list.html",
+            {
+                "request": request,
+                "title": title,
+                "table_title": table_title,
+                "registrations": registration_views,
+                "empty_message": empty_message,
+                "show_manual_form": show_manual_form,
+                "allow_delete": allow_delete,
+                "return_to": request.url.path,
+                "event": event,
+                "approved_attendee_count": get_approved_attendee_count(session, event),
+                "pending_count": pending_count,
+                "flash": request.query_params.get("msg"),
+            },
+        )
+
+    def pending_actions(_: Registration) -> list[dict[str, str | bool | None]]:
+        return [
+            make_action("Approve", "approved", priority=False),
+            make_action("Approve as priority", "approved", priority=True, css_class="secondary"),
+            make_action("Waitlist", "waitlisted", css_class="secondary"),
+            make_action("Reject", "rejected", css_class="danger"),
+        ]
+
+    def approved_actions(_: Registration) -> list[dict[str, str | bool | None]]:
+        return [
+            make_action("Mark as priority", "approved", priority=True, css_class="secondary"),
+            make_action("Waitlist", "waitlisted", css_class="secondary"),
+            make_action("Reject", "rejected", css_class="danger"),
+            make_action("Reset to pending", "pending", css_class="secondary"),
+        ]
+
+    def approved_priority_actions(_: Registration) -> list[dict[str, str | bool | None]]:
+        return [
+            make_action("Mark as regular", "approved", priority=False),
+            make_action("Waitlist", "waitlisted", css_class="secondary"),
+            make_action("Reject", "rejected", css_class="danger"),
+            make_action("Reset to pending", "pending", css_class="secondary"),
+        ]
+
+    def waitlisted_actions(_: Registration) -> list[dict[str, str | bool | None]]:
+        return [
+            make_action("Approve", "approved", priority=False),
+            make_action("Approve as priority", "approved", priority=True, css_class="secondary"),
+            make_action("Reject", "rejected", css_class="danger"),
+            make_action("Reset to pending", "pending", css_class="secondary"),
+        ]
+
+    def declined_actions(_: Registration) -> list[dict[str, str | bool | None]]:
+        return [
+            make_action("Approve", "approved", priority=False),
+            make_action("Approve as priority", "approved", priority=True, css_class="secondary"),
+            make_action("Waitlist", "waitlisted", css_class="secondary"),
+            make_action("Reset to pending", "pending", css_class="secondary"),
+        ]
+
+    def base_registration_query(event, status_filter):
+        query = (
+            select(Registration)
+            .where(Registration.event_id == event.id)
+            .order_by(Registration.created_at.asc())
+        )
+        if status_filter is not None:
+            query = query.where(status_filter)
+        return query
+
     @app.get("/admin/registrations")
-    async def registrations(
+    async def registrations_pending(
         request: Request,
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
         event = get_or_create_default_event(session, settings)
-        attendees = (
+        registrations = (
             session.execute(
-                select(Registration)
-                .where(Registration.category == RegistrationCategory.ATTENDEE)
-                .order_by(Registration.created_at.asc())
+                base_registration_query(event, Registration.status == RegistrationStatus.PENDING)
             )
             .scalars()
             .all()
         )
-        lecturers = (
+        return render_registration_page(
+            request,
+            session,
+            event=event,
+            registrations=registrations,
+            title="Pending registrations",
+            table_title="Waiting for review",
+            empty_message="No registrations are waiting for review.",
+            actions_builder=pending_actions,
+            show_manual_form=True,
+            allow_delete=True,
+        )
+
+    @app.get("/admin/registrations/approved")
+    async def registrations_approved(
+        request: Request,
+        _: str = Depends(admin_auth),
+        session: Session = Depends(get_session),
+    ):
+        event = get_or_create_default_event(session, settings)
+        registrations = (
             session.execute(
-                select(Registration)
-                .where(
-                    Registration.category.in_(
-                        [RegistrationCategory.LECTURER, RegistrationCategory.SHOWCASE]
-                    )
+                base_registration_query(event, Registration.status == RegistrationStatus.APPROVED).where(
+                    Registration.is_priority.is_(False)
                 )
-                .order_by(Registration.created_at.asc())
             )
             .scalars()
             .all()
         )
-        attendee_count = get_approved_attendee_count(session, event)
-        return templates.TemplateResponse(
-            "registrations.html",
-            {
-                "request": request,
-                "attendees": attendees,
-                "lecturers": lecturers,
-                "RegistrationStatus": RegistrationStatus,
-                "event": event,
-                "approved_attendee_count": attendee_count,
-                "flash": request.query_params.get("msg"),
-            },
+        return render_registration_page(
+            request,
+            session,
+            event=event,
+            registrations=registrations,
+            title="Approved registrations",
+            table_title="Approved attendees",
+            empty_message="No approved registrations yet.",
+            actions_builder=approved_actions,
+        )
+
+    @app.get("/admin/registrations/approved-priority")
+    async def registrations_approved_priority(
+        request: Request,
+        _: str = Depends(admin_auth),
+        session: Session = Depends(get_session),
+    ):
+        event = get_or_create_default_event(session, settings)
+        registrations = (
+            session.execute(
+                base_registration_query(event, Registration.status == RegistrationStatus.APPROVED).where(
+                    Registration.is_priority.is_(True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return render_registration_page(
+            request,
+            session,
+            event=event,
+            registrations=registrations,
+            title="Priority approvals",
+            table_title="Approved with priority",
+            empty_message="No priority approvals yet.",
+            actions_builder=approved_priority_actions,
+        )
+
+    @app.get("/admin/registrations/waitlisted")
+    async def registrations_waitlisted(
+        request: Request,
+        _: str = Depends(admin_auth),
+        session: Session = Depends(get_session),
+    ):
+        event = get_or_create_default_event(session, settings)
+        registrations = (
+            session.execute(
+                base_registration_query(event, Registration.status == RegistrationStatus.WAITLISTED)
+            )
+            .scalars()
+            .all()
+        )
+        return render_registration_page(
+            request,
+            session,
+            event=event,
+            registrations=registrations,
+            title="Waitlisted registrations",
+            table_title="Waitlisted attendees",
+            empty_message="No waitlisted registrations.",
+            actions_builder=waitlisted_actions,
+        )
+
+    @app.get("/admin/registrations/declined")
+    async def registrations_declined(
+        request: Request,
+        _: str = Depends(admin_auth),
+        session: Session = Depends(get_session),
+    ):
+        event = get_or_create_default_event(session, settings)
+        registrations = (
+            session.execute(
+                base_registration_query(event, Registration.status == RegistrationStatus.REJECTED)
+            )
+            .scalars()
+            .all()
+        )
+        return render_registration_page(
+            request,
+            session,
+            event=event,
+            registrations=registrations,
+            title="Declined registrations",
+            table_title="Declined applicants",
+            empty_message="No declined registrations.",
+            actions_builder=declined_actions,
         )
 
     @app.post("/admin/registrations/{registration_id}/status")
@@ -212,7 +539,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         request: Request,
         registration_id: int,
         status_value: str = Form(...),
-        priority: bool = Form(False),
+        priority_value: str | None = Form(None),
+        return_to: str | None = Form(None),
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
@@ -229,9 +557,17 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown status"
             ) from exc
 
+        if priority_value is None:
+            priority_flag: bool | None = None
+        else:
+            priority_flag = priority_value.lower() in {"true", "1", "on"}
+
         try:
             update_registration_status(
-                session, registration, status=status_enum, is_priority=priority
+                session,
+                registration,
+                status=status_enum,
+                is_priority=priority_flag,
             )
         except CapacityError:
             raise HTTPException(
@@ -255,12 +591,14 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                     )
                 )
 
-        return RedirectResponse("/admin/registrations", status_code=status.HTTP_303_SEE_OTHER)
+        redirect_path = safe_redirect_path(return_to, "/admin/registrations")
+        return RedirectResponse(redirect_path, status_code=status.HTTP_303_SEE_OTHER)
 
     @app.post("/admin/registrations/{registration_id}/delete")
     async def delete_registration(
         request: Request,
         registration_id: int,
+        return_to: str | None = Form(None),
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
@@ -271,7 +609,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             )
         session.delete(registration)
         session.flush()
-        return redirect_with_message("/admin/registrations", "Registration deleted")
+        redirect_path = safe_redirect_path(return_to, "/admin/registrations")
+        return redirect_with_message(redirect_path, "Registration deleted")
 
     @app.post("/admin/registrations/manual")
     async def add_manual_registration(
@@ -281,6 +620,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         category_value: str = Form(...),
         notes: str | None = Form(None),
         priority: bool = Form(False),
+        return_to: str | None = Form(None),
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
@@ -301,7 +641,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             notes=notes,
             is_priority=priority,
         )
-        return RedirectResponse("/admin/registrations", status_code=status.HTTP_303_SEE_OTHER)
+        redirect_path = safe_redirect_path(return_to, "/admin/registrations")
+        return RedirectResponse(redirect_path, status_code=status.HTTP_303_SEE_OTHER)
 
     @app.get("/admin/urgent")
     async def urgent(request: Request, _: str = Depends(admin_auth)):

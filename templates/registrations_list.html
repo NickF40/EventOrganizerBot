@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+<div class="card">
+    <h2>Event capacity</h2>
+    <ul class="info-list">
+        <li><strong>Approved attendees:</strong> {{ approved_attendee_count }}{% if event.capacity is not none %} / {{ event.capacity }}{% else %} (no limit){% endif %}</li>
+        <li><strong>Waiting to review:</strong> {{ pending_count }} (<a href="/admin/registrations">view</a>)</li>
+    </ul>
+</div>
+{% if show_manual_form %}
+<div class="card">
+    <h2>Add attendee manually</h2>
+    <form method="post" action="/admin/registrations/manual">
+        <input type="hidden" name="return_to" value="{{ return_to }}" />
+        <div class="flex">
+            <div>
+                <label>Display name
+                    <input type="text" name="display_name" required />
+                </label>
+            </div>
+            <div>
+                <label>Contact info
+                    <input type="text" name="contact" placeholder="Email, phone, etc." />
+                </label>
+            </div>
+            <div>
+                <label>Category
+                    <select name="category_value" required>
+                        <option value="attendee">Attendee</option>
+                        <option value="lecturer">Lecturer</option>
+                        <option value="showcase">Project showcase</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+        <label>Notes
+            <textarea name="notes" rows="2"></textarea>
+        </label>
+        <label>
+            <input type="checkbox" name="priority" value="true" checked /> Priority attendee (ignore limit)
+        </label>
+        <button type="submit">Add registration</button>
+    </form>
+</div>
+{% endif %}
+<div class="card">
+    <h2>{{ table_title }}</h2>
+    {% if registrations %}
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Category</th><th>Status</th><th>Priority</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            {% for registration in registrations %}
+                <tr>
+                    <td>{{ registration.name }}{% if registration.contact %}<br/><small>{{ registration.contact }}</small>{% endif %}</td>
+                    <td>{{ registration.category|title }}</td>
+                    <td>{{ registration.status|title }}</td>
+                    <td>{{ 'Yes' if registration.priority else 'No' }}</td>
+                    <td>{{ registration.notes }}</td>
+                    <td>
+                        <div class="table-actions">
+                            {% for action in registration.actions %}
+                                <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/status">
+                                    <input type="hidden" name="status_value" value="{{ action.status }}" />
+                                    {% if action.priority is not none %}
+                                        <input type="hidden" name="priority_value" value="{{ 'true' if action.priority else 'false' }}" />
+                                    {% endif %}
+                                    <input type="hidden" name="return_to" value="{{ return_to }}" />
+                                    <button type="submit" class="{{ action.class }}">{{ action.label }}</button>
+                                </form>
+                            {% endfor %}
+                            {% if allow_delete %}
+                                <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/delete">
+                                    <input type="hidden" name="return_to" value="{{ return_to }}" />
+                                    <button type="submit" class="danger">Delete</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>{{ empty_message }}</p>
+    {% endif %}
+</div>
+{% endblock %}
