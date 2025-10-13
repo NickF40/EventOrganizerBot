@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.database import get_session
+from app.localization import get_localizer
 from app.models import (
     Registration,
     RegistrationCategory,
@@ -37,6 +38,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     app = FastAPI(title="Event Admin")
     app.state.settings = settings
     app.state.bot = bot
+
+    def current_localizer():
+        return get_localizer(app.state.settings.locale)
 
     def admin_auth(
         request: Request,
@@ -437,15 +441,10 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         session: Session = Depends(get_session),
     ):
         event = get_or_create_default_event(session, settings)
-        registrations = (
-            session.execute(
-                base_registration_query(event, Registration.status == RegistrationStatus.APPROVED).where(
-                    Registration.is_priority.is_(False)
-                )
-            )
-            .scalars()
-            .all()
-        )
+        base_query = base_registration_query(
+            event, Registration.status == RegistrationStatus.APPROVED
+        ).where(Registration.is_priority.is_(False))
+        registrations = session.execute(base_query).scalars().all()
         return render_registration_page(
             request,
             session,
@@ -464,15 +463,10 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         session: Session = Depends(get_session),
     ):
         event = get_or_create_default_event(session, settings)
-        registrations = (
-            session.execute(
-                base_registration_query(event, Registration.status == RegistrationStatus.APPROVED).where(
-                    Registration.is_priority.is_(True)
-                )
-            )
-            .scalars()
-            .all()
-        )
+        base_query = base_registration_query(
+            event, Registration.status == RegistrationStatus.APPROVED
+        ).where(Registration.is_priority.is_(True))
+        registrations = session.execute(base_query).scalars().all()
         return render_registration_page(
             request,
             session,
@@ -578,12 +572,16 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
 
         if registration.user.telegram_id:
             message = None
+            localizer = current_localizer()
             if status_enum == RegistrationStatus.APPROVED:
-                message = "You're approved for the event! See you soon."
+                if getattr(registration, "is_priority", False):
+                    message = localizer.get("admin_notifications.approved_priority")
+                else:
+                    message = localizer.get("admin_notifications.approved")
             elif status_enum == RegistrationStatus.REJECTED:
-                message = "Unfortunately we can't confirm your spot this time."
+                message = localizer.get("admin_notifications.rejected")
             elif status_enum == RegistrationStatus.WAITLISTED:
-                message = "You're still on the waiting list. We'll keep you updated."
+                message = localizer.get("admin_notifications.waitlisted")
             if message:
                 asyncio.create_task(
                     request.app.state.bot.send_message(

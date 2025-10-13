@@ -1,0 +1,48 @@
+{
+  "buttons": {
+    "attend": "Attend the event",
+    "lecturer": "Register as lecturer",
+    "showcase": "Project showcase"
+  },
+  "start": {
+    "returning": "Welcome back, {name}!\n\nWe already have you registered:\n{summary}\n\nUse /status any time for the latest updates or pick another option below.",
+    "new": "Hi {name}!\n\nWelcome to the {event_name} bot. Choose how you'd like to participate.",
+    "summary_item": "• {category}: {status}"
+  },
+  "registration": {
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "approved_suffix": " (approved)",
+      "waitlisted": "Waitlisted",
+      "waitlisted_suffix": " (waiting list)",
+      "rejected": "Rejected"
+    },
+    "category": {
+      "attendee": "Attendee",
+      "lecturer": "Lecturer",
+      "showcase": "Project showcase"
+    },
+    "callback": {
+      "unknown_option": "Unknown registration option. Please try again.",
+      "waitlisted": "You're on the waiting list. We'll let you know if a spot opens up!",
+      "attendee": "Thanks! Your attendance request has been received. An organiser will confirm soon.",
+      "lecturer": "Thanks! We've received your lecturer application. We'll follow up shortly.",
+      "showcase": "Great! Your project showcase registration is in our system.",
+      "duplicate": "We already have your registration on file. We'll keep you posted!"
+    }
+  },
+  "status": {
+    "none_found": "We couldn't find a registration for you yet. Use /start to sign up!",
+    "line": "{category}: {status}"
+  },
+  "help": {
+    "text": "Use /start to begin registration or /status to check your current status."
+  },
+  "admin_notifications": {
+    "approved": "Good news! You've been approved for the event.",
+    "approved_priority": "Great news! You've been approved for the event.",
+    "rejected": "Unfortunately we can't confirm your spot this time.",
+    "waitlisted": "You're still on the waiting list. We'll keep you updated."
+  }
+}

@@ -28,6 +28,8 @@ You can still override any value via environment variables (`TELEGRAM_TOKEN`, `A
    make dev-install
    ```
 
+   If uv is not available, install the dependencies listed in `requirements.txt` with `pip install -r requirements.txt` and the dev tools (`pytest`, `pytest-cov`, etc.) as needed for your workflow.
+
 2. Run the bot:
 
    ```bash
@@ -60,6 +62,7 @@ By default the compose file mounts `config.yaml` into the container. Provide you
 
 - The project uses uv and a `config.yaml` file for configuration, making it easy to deploy with Docker or any container orchestrator.
 - Data lives in the configured SQL database. When redeploying, point `DATABASE_URL` to the same storage (for SQLite mount the volume, for Postgres/MySQL use the external service) to retain registrations and scheduled posts.
+- User-facing copy is resolved through JSON localization files stored under `app/locales/`. Set the `LOCALE` environment variable (or the corresponding YAML field) to switch languages at runtime and add new translation files alongside `en.json`.
 
 ## Project structure
 

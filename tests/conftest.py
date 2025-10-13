@@ -8,10 +8,10 @@ def _ensure_module(name: str, module: types.ModuleType) -> None:
 
 
 def _install_telegram_stubs() -> None:
-    if importlib.util.find_spec("telebot") is not None:
+    if importlib.util.find_spec("telegram") is not None:
         return
 
-    telegram = types.ModuleType("telebot")
+    telegram = types.ModuleType("telegram")
     telegram.__path__ = []
 
     class _TelegramObject:
@@ -36,11 +36,11 @@ def _install_telegram_stubs() -> None:
     telegram.InlineKeyboardButton = _InlineKeyboardButton
     telegram.InlineKeyboardMarkup = _InlineKeyboardMarkup
 
-    error_module = types.ModuleType("telebot.error")
+    error_module = types.ModuleType("telegram.error")
     telegram.error = error_module
     error_module.TelegramError = Exception
 
-    ext_module = types.ModuleType("telebot.ext")
+    ext_module = types.ModuleType("telegram.ext")
     ext_module.__path__ = []
 
     class _DummyUpdater:
@@ -100,6 +100,10 @@ def _install_telegram_stubs() -> None:
 
     telegram.ext = ext_module
 
+    _ensure_module("telegram", telegram)
+    _ensure_module("telegram.error", error_module)
+    _ensure_module("telegram.ext", ext_module)
+    # Backwards compatibility with older imports used in some tests.
     _ensure_module("telebot", telegram)
     _ensure_module("telebot.error", error_module)
     _ensure_module("telebot.ext", ext_module)

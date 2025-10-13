@@ -20,6 +20,7 @@ sys.modules.setdefault("telebot.error", types.SimpleNamespace(TelegramError=Exce
 import app.config as app_config
 from app.config import Settings
 from app.database import get_session
+from app.localization import get_localizer
 from app.models import RegistrationCategory, RegistrationStatus
 from app.web import admin as admin_module
 
@@ -103,6 +104,24 @@ def test_posts_page_renders_lists(admin_client):
     assert "Timezone preferences" in response.text
     assert "Europe/Moscow" in response.text
     assert "Asia/Almaty" in response.text
+
+
+def test_registrations_page_includes_limit_form(admin_client, monkeypatch):
+    client, app, _ = admin_client
+    session = MagicMock()
+    session.execute.return_value = _make_scalar_result([])
+    session.scalar.return_value = 0
+    app.dependency_overrides[get_session] = _override_session(session)
+
+    event = SimpleNamespace(id=1, capacity=50)
+    monkeypatch.setattr(admin_module, "get_or_create_default_event", lambda *args, **kwargs: event)
+
+    response = client.get("/admin/registrations", auth=("admin", "secret"))
+
+    assert response.status_code == 200
+    assert "Attendee limit" in response.text
+    assert "Leave blank to remove the limit." in response.text
+    assert "value=\"50\"" in response.text
 
 
 def test_dashboard_renders_summary(admin_client):
@@ -326,7 +345,7 @@ def test_update_status_updates_registration(admin_client, monkeypatch):
     session = MagicMock()
     app.dependency_overrides[get_session] = _override_session(session)
 
-    registration = SimpleNamespace(user=SimpleNamespace(telegram_id=123))
+    registration = SimpleNamespace(user=SimpleNamespace(telegram_id=123), is_priority=True)
     session.get.return_value = registration
 
     update_status = MagicMock()
@@ -352,4 +371,8 @@ def test_update_status_updates_registration(admin_client, monkeypatch):
     create_task.assert_called_once()
     created_coro = create_task.call_args[0][0]
     created_coro.close()
+    expected_message = get_localizer(app.state.settings.locale).get(
+        "admin_notifications.approved_priority"
+    )
+    assert bot.send_message.call_args.kwargs["text"] == expected_message
 

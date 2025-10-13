@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from app.config import Settings, get_settings
 from app.database import session_scope
+from app.localization import get_localizer
 from app.models import Registration, RegistrationCategory, RegistrationStatus
 from app.services.events import get_or_create_default_event
 from app.services.registrations import register_user
@@ -13,28 +14,49 @@ from app.services.users import get_or_create_user
 REGISTRATION_CALLBACK_PREFIX = "register:"
 
 
-def build_registration_keyboard() -> InlineKeyboardMarkup:
+def build_registration_keyboard(localizer) -> InlineKeyboardMarkup:
     buttons = [
         [
             InlineKeyboardButton(
-                text="Attend the event",
-                callback_data=f"{REGISTRATION_CALLBACK_PREFIX}{RegistrationCategory.ATTENDEE.value}",
+                text=localizer.get("buttons.attend"),
+                callback_data=(
+                    f"{REGISTRATION_CALLBACK_PREFIX}{RegistrationCategory.ATTENDEE.value}"
+                ),
             )
         ],
         [
             InlineKeyboardButton(
-                text="Register as lecturer",
-                callback_data=f"{REGISTRATION_CALLBACK_PREFIX}{RegistrationCategory.LECTURER.value}",
+                text=localizer.get("buttons.lecturer"),
+                callback_data=(
+                    f"{REGISTRATION_CALLBACK_PREFIX}{RegistrationCategory.LECTURER.value}"
+                ),
             )
         ],
         [
             InlineKeyboardButton(
-                text="Project showcase",
-                callback_data=f"{REGISTRATION_CALLBACK_PREFIX}{RegistrationCategory.SHOWCASE.value}",
+                text=localizer.get("buttons.showcase"),
+                callback_data=(
+                    f"{REGISTRATION_CALLBACK_PREFIX}{RegistrationCategory.SHOWCASE.value}"
+                ),
             )
         ],
     ]
     return InlineKeyboardMarkup(buttons)
+
+
+def _localized_status(localizer, registration: Registration) -> str:
+    base = localizer.get(f"registration.status.{registration.status.value}")
+    if registration.status == RegistrationStatus.WAITLISTED:
+        suffix = localizer.get("registration.status.waitlisted_suffix")
+        return f"{base}{suffix}"
+    if registration.status == RegistrationStatus.APPROVED:
+        suffix = localizer.get("registration.status.approved_suffix")
+        return f"{base}{suffix}"
+    return base
+
+
+def _localized_category(localizer, category: RegistrationCategory) -> str:
+    return localizer.get(f"registration.category.{category.value}")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -58,29 +80,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             .all()
         )
 
+    localizer = get_localizer(settings.locale)
+
     if registrations:
         lines: list[str] = []
         for registration in registrations:
-            status_text = registration.status.value.replace("_", " ").title()
-            if registration.status == RegistrationStatus.WAITLISTED:
-                status_text += " (waiting list)"
-            elif registration.status == RegistrationStatus.APPROVED:
-                status_text += " (approved)"
-            lines.append(f"• {registration.category.value.title()}: {status_text}")
+            status_text = _localized_status(localizer, registration)
+            category_text = _localized_category(localizer, registration.category)
+            lines.append(
+                localizer.format(
+                    "start.summary_item", category=category_text, status=status_text
+                )
+            )
         summary = "\n".join(lines)
-        welcome_text = (
-            f"Welcome back, {user.first_name or user.full_name or user.username}!\n\n"
-            "We already have you registered:\n"
-            f"{summary}\n\n"
-            "Use /status any time for the latest updates or pick another option below."
+        welcome_text = localizer.format(
+            "start.returning",
+            name=user.first_name or user.full_name or user.username,
+            summary=summary,
         )
     else:
-        welcome_text = (
-            f"Hi {user.first_name or user.full_name or user.username}!\n\n"
-            f"Welcome to the {settings.event_name} bot. Choose how you'd like to participate."
+        welcome_text = localizer.format(
+            "start.new",
+            name=user.first_name or user.full_name or user.username,
+            event_name=settings.event_name,
         )
     await context.bot.send_message(
-        chat_id=chat.id, text=welcome_text, reply_markup=build_registration_keyboard()
+        chat_id=chat.id,
+        text=welcome_text,
+        reply_markup=build_registration_keyboard(localizer),
     )
 
 
@@ -95,13 +122,15 @@ async def handle_registration_callback(update: Update, context: ContextTypes.DEF
         return
 
     category_value = data.split(":", 1)[1]
+    settings: Settings = get_settings()
+    localizer = get_localizer(settings.locale)
+
     try:
         category = RegistrationCategory(category_value)
     except ValueError:
-        await query.edit_message_text("Unknown registration option. Please try again.")
+        await query.edit_message_text(localizer.get("registration.callback.unknown_option"))
         return
 
-    settings: Settings = get_settings()
     user = query.from_user
     if not user:
         return
@@ -114,15 +143,15 @@ async def handle_registration_callback(update: Update, context: ContextTypes.DEF
     if result.created:
         if category == RegistrationCategory.ATTENDEE:
             if result.waitlisted:
-                message = "You're on the waiting list. We'll let you know if a spot opens up!"
+                message = localizer.get("registration.callback.waitlisted")
             else:
-                message = "Thanks! Your attendance request has been received. An organiser will confirm soon."
+                message = localizer.get("registration.callback.attendee")
         elif category == RegistrationCategory.LECTURER:
-            message = "Thanks! We've received your lecturer application. We'll follow up shortly."
+            message = localizer.get("registration.callback.lecturer")
         else:
-            message = "Great! Your project showcase registration is in our system."
+            message = localizer.get("registration.callback.showcase")
     else:
-        message = "We already have your registration on file. We'll keep you posted!"
+        message = localizer.get("registration.callback.duplicate")
 
     await query.edit_message_text(message)
 
@@ -134,6 +163,8 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     settings = get_settings()
+    localizer = get_localizer(settings.locale)
+
     with session_scope() as session:
         db_user = get_or_create_user(session, user)
         event = get_or_create_default_event(session, settings)
@@ -150,18 +181,15 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not registrations:
         await context.bot.send_message(
             chat_id=chat.id,
-            text="We couldn't find a registration for you yet. Use /start to sign up!",
+            text=localizer.get("status.none_found"),
         )
         return
 
     parts = []
     for registration in registrations:
-        status_text = registration.status.value.replace("_", " ").title()
-        if registration.status == RegistrationStatus.WAITLISTED:
-            status_text += " (waiting list)"
-        elif registration.status == RegistrationStatus.APPROVED:
-            status_text += " (approved)"
-        parts.append(f"{registration.category.value.title()}: {status_text}")
+        status_text = _localized_status(localizer, registration)
+        category_text = _localized_category(localizer, registration.category)
+        parts.append(localizer.format("status.line", category=category_text, status=status_text))
 
     await context.bot.send_message(chat_id=chat.id, text="\n".join(parts))
 
@@ -170,9 +198,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     chat = update.effective_chat
     if not chat:
         return
+    settings = get_settings()
+    localizer = get_localizer(settings.locale)
     await context.bot.send_message(
         chat_id=chat.id,
-        text="Use /start to begin registration or /status to check your current status.",
+        text=localizer.get("help.text"),
     )
 
 

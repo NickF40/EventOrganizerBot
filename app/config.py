@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     )
     event_name: str = Field(default="Community Event", env="EVENT_NAME")
     attendee_limit: int = Field(default=150, env="ATTENDEE_LIMIT")
+    locale: str = Field(default="en", env="LOCALE")
 
     web_host: str = Field(default="0.0.0.0", env="WEB_HOST")
     web_port: int = Field(default=8000, env="WEB_PORT")

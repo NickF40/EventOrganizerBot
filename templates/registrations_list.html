@@ -7,6 +7,26 @@
         <li><strong>Approved attendees:</strong> {{ approved_attendee_count }}{% if event.capacity is not none %} / {{ event.capacity }}{% else %} (no limit){% endif %}</li>
         <li><strong>Waiting to review:</strong> {{ pending_count }} (<a href="/admin/registrations">view</a>)</li>
     </ul>
+    <form
+        method="post"
+        action="/admin/event/limit"
+        class="inline"
+        style="display: grid; gap: 0.5rem; max-width: 320px;"
+    >
+        <label>Attendee limit
+            <input
+                type="number"
+                name="limit"
+                min="0"
+                placeholder="Leave blank for no limit"
+                value="{{ '' if event.capacity is none else event.capacity }}"
+            />
+        </label>
+        <p class="help-text" style="margin: 0;">
+            Leave blank to remove the limit.
+        </p>
+        <button type="submit">Save limit</button>
+    </form>
 </div>
 {% if show_manual_form %}
 <div class="card">
