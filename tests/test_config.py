@@ -4,8 +4,8 @@ from app.config import Settings, get_settings
 from app import utils
 
 
-def test_parse_admin_ids_from_string():
-    assert Settings._parse_admin_ids("1, 2,3") == [1, 2, 3]
+def test_parse_admin_usernames_from_string():
+    assert Settings._parse_admin_usernames("Admin, @Owner") == ["admin", "owner"]
 
 
 @pytest.fixture(autouse=True)
@@ -20,22 +20,19 @@ def test_settings_loaded_from_yaml(tmp_path, monkeypatch):
     config_path.write_text(
         """
 telegram_token: test-token
-admin_ids:
-  - 123
-basic_auth_username: admin
-basic_auth_password: secret
+admin_usernames:
+  - admin
+  - "@Owner"
         """
     )
     monkeypatch.setenv("CONFIG_FILE", str(config_path))
     monkeypatch.setenv("TELEGRAM_TOKEN", "test-token")
-    monkeypatch.setenv("ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("ADMIN_PASSWORD", "secret")
 
     settings = get_settings()
 
     assert settings.telegram_token == "test-token"
-    assert settings.admin_ids == [123]
-    assert 123 in settings.admin_id_set
+    assert settings.admin_usernames == ["admin", "owner"]
+    assert settings.admin_username_set == {"admin", "owner"}
 
     monkeypatch.delenv("CONFIG_FILE", raising=False)
 
@@ -64,19 +61,7 @@ def test_config_path_falls_back_to_search_paths(tmp_path, monkeypatch):
     assert utils.config_path() == config_file
 
 
-def test_set_timezone_respects_read_only_file(tmp_path, monkeypatch):
-    config_file = tmp_path / "config.yaml"
-    config_file.write_text("timezone: UTC\n")
-    config_file.chmod(0o400)
-
-    monkeypatch.setenv("CONFIG_FILE", str(config_file))
-    settings = Settings(
-        telegram_token="token",
-        basic_auth_username="admin",
-        basic_auth_password="secret",
-    )
-
-    persisted = settings.set_timezone("Europe/London")
-
-    assert persisted is False
-    assert settings.timezone == "Europe/London"
+def test_settings_respects_admin_usernames_env(monkeypatch):
+    monkeypatch.setenv("ADMIN_USERNAMES", '["first", "Second"]')
+    settings = Settings(telegram_token="token")
+    assert settings.admin_usernames == ["first", "second"]
