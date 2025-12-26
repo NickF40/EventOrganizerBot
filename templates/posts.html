@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Scheduled posts for {{ event_name }}</h1>
+<h1>{{ localizer.format("admin.posts.title", event_name=event_name) }}</h1>
 <div class="flex">
     <div class="card" style="flex: 1; min-width: 280px;">
-        <h2>Timezone preferences</h2>
-        <p class="help-text">All times below are displayed as <strong>{{ timezone }}</strong>.</p>
+        <h2>{{ localizer.get("admin.posts.timezone.title") }}</h2>
+        <p class="help-text">{{ localizer.format("admin.posts.timezone.help", timezone=timezone) }}</p>
         {% if not timezone_persisted %}
-            <p class="help-text warning">No config file detected – the choice will reset after restart.</p>
+            <p class="help-text warning">{{ localizer.get("admin.posts.timezone.warning") }}</p>
         {% endif %}
         <form method="post" action="/admin/settings/timezone" class="timezone-form">
             <input type="hidden" name="return_to" value="/admin/posts" />
-            <label for="timezone">Timezone</label>
+            <label for="timezone">{{ localizer.get("admin.posts.timezone.label") }}</label>
             <input type="text" name="timezone_value" id="timezone" value="{{ timezone }}" list="timezone-suggestions" required />
             <datalist id="timezone-suggestions">
                 <option value="UTC"></option>
@@ -23,34 +23,34 @@
                 <option value="Asia/Almaty"></option>
                 <option value="Australia/Sydney"></option>
             </datalist>
-            <button type="submit">Save timezone</button>
+            <button type="submit">{{ localizer.get("admin.posts.timezone.save") }}</button>
         </form>
     </div>
     <div class="card" style="flex: 2;">
-        <h2>Plan a new announcement</h2>
-        <p class="help-text">Provide the local send time; we will handle the UTC conversion.</p>
+        <h2>{{ localizer.get("admin.posts.new.title") }}</h2>
+        <p class="help-text">{{ localizer.get("admin.posts.new.help") }}</p>
         <form method="post">
-            <label>Title
+            <label>{{ localizer.get("admin.posts.new.fields.title") }}
                 <input type="text" name="title" required />
             </label>
-            <label>Content
+            <label>{{ localizer.get("admin.posts.new.fields.content") }}
                 <textarea name="content" rows="4" required></textarea>
             </label>
-            <label>Send at ({{ timezone }})
+            <label>{{ localizer.format("admin.posts.new.fields.send_at", timezone=timezone) }}
                 <input type="datetime-local" name="send_at" required />
             </label>
-            <button type="submit">Schedule post</button>
+            <button type="submit">{{ localizer.get("admin.posts.new.submit") }}</button>
         </form>
     </div>
 </div>
 <div class="flex">
     <div class="card">
-        <h2>Upcoming posts</h2>
-        <p class="help-text">Showing local time in {{ timezone }}.</p>
+        <h2>{{ localizer.get("admin.posts.upcoming.title") }}</h2>
+        <p class="help-text">{{ localizer.format("admin.posts.upcoming.help", timezone=timezone) }}</p>
         {% if upcoming %}
             <table>
                 <thead>
-                    <tr><th>Title</th><th>Send at</th></tr>
+                    <tr><th>{{ localizer.get("admin.posts.table.title") }}</th><th>{{ localizer.get("admin.posts.table.send_at") }}</th></tr>
                 </thead>
                 <tbody>
                 {% for post in upcoming %}
@@ -62,28 +62,28 @@
                 </tbody>
             </table>
         {% else %}
-            <p>No posts scheduled yet.</p>
+            <p>{{ localizer.get("admin.posts.upcoming.empty") }}</p>
         {% endif %}
     </div>
     <div class="card">
-        <h2>Recently sent</h2>
-        <p class="help-text">Timestamps reflect {{ timezone }}.</p>
+        <h2>{{ localizer.get("admin.posts.sent.title") }}</h2>
+        <p class="help-text">{{ localizer.format("admin.posts.sent.help", timezone=timezone) }}</p>
         {% if sent %}
             <table>
                 <thead>
-                    <tr><th>Title</th><th>Sent at</th></tr>
+                    <tr><th>{{ localizer.get("admin.posts.table.title") }}</th><th>{{ localizer.get("admin.posts.table.sent_at") }}</th></tr>
                 </thead>
                 <tbody>
                 {% for post in sent %}
                     <tr>
                         <td>{{ post.title }}</td>
-                        <td>{{ post.sent_at_local or '—' }}</td>
+                        <td>{{ post.sent_at_local or localizer.get("admin.posts.sent.empty_date") }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
         {% else %}
-            <p>No posts sent yet.</p>
+            <p>{{ localizer.get("admin.posts.sent.empty") }}</p>
         {% endif %}
     </div>
 </div>

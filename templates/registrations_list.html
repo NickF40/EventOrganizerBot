@@ -2,10 +2,10 @@
 {% block content %}
 <h1>{{ title }}</h1>
 <div class="card">
-    <h2>Event capacity</h2>
+    <h2>{{ localizer.get("admin.registrations.capacity.title") }}</h2>
     <ul class="info-list">
-        <li><strong>Approved attendees:</strong> {{ approved_attendee_count }}{% if event.capacity is not none %} / {{ event.capacity }}{% else %} (no limit){% endif %}</li>
-        <li><strong>Waiting to review:</strong> {{ pending_count }} (<a href="/admin/registrations">view</a>)</li>
+        <li><strong>{{ localizer.get("admin.registrations.capacity.approved") }}</strong> {{ approved_attendee_count }}{% if event.capacity is not none %} / {{ event.capacity }}{% else %} {{ localizer.get("admin.registrations.capacity.no_limit") }}{% endif %}</li>
+        <li><strong>{{ localizer.get("admin.registrations.capacity.pending") }}</strong> {{ pending_count }} (<a href="/admin/registrations">{{ localizer.get("admin.registrations.capacity.view") }}</a>)</li>
     </ul>
     <form
         method="post"
@@ -13,54 +13,54 @@
         class="inline"
         style="display: grid; gap: 0.5rem; max-width: 320px;"
     >
-        <label>Attendee limit
+        <label>{{ localizer.get("admin.registrations.capacity.limit_label") }}
             <input
                 type="number"
                 name="limit"
                 min="0"
-                placeholder="Leave blank for no limit"
+                placeholder="{{ localizer.get("admin.registrations.capacity.limit_placeholder") }}"
                 value="{{ '' if event.capacity is none else event.capacity }}"
             />
         </label>
         <p class="help-text" style="margin: 0;">
-            Leave blank to remove the limit.
+            {{ localizer.get("admin.registrations.capacity.limit_help") }}
         </p>
-        <button type="submit">Save limit</button>
+        <button type="submit">{{ localizer.get("admin.registrations.capacity.save") }}</button>
     </form>
 </div>
 {% if show_manual_form %}
 <div class="card">
-    <h2>Add attendee manually</h2>
+    <h2>{{ localizer.get("admin.registrations.manual.title") }}</h2>
     <form method="post" action="/admin/registrations/manual">
         <input type="hidden" name="return_to" value="{{ return_to }}" />
         <div class="flex">
             <div>
-                <label>Display name
+                <label>{{ localizer.get("admin.registrations.manual.display_name") }}
                     <input type="text" name="display_name" required />
                 </label>
             </div>
             <div>
-                <label>Contact info
-                    <input type="text" name="contact" placeholder="Email, phone, etc." />
+                <label>{{ localizer.get("admin.registrations.manual.contact") }}
+                    <input type="text" name="contact" placeholder="{{ localizer.get("admin.registrations.manual.contact_placeholder") }}" />
                 </label>
             </div>
             <div>
-                <label>Category
+                <label>{{ localizer.get("admin.registrations.manual.category") }}
                     <select name="category_value" required>
-                        <option value="attendee">Attendee</option>
-                        <option value="lecturer">Lecturer</option>
-                        <option value="showcase">Project showcase</option>
+                        <option value="attendee">{{ localizer.get("admin.categories.attendee") }}</option>
+                        <option value="lecturer">{{ localizer.get("admin.categories.lecturer") }}</option>
+                        <option value="showcase">{{ localizer.get("admin.categories.showcase") }}</option>
                     </select>
                 </label>
             </div>
         </div>
-        <label>Notes
+        <label>{{ localizer.get("admin.registrations.manual.notes") }}
             <textarea name="notes" rows="2"></textarea>
         </label>
         <label>
-            <input type="checkbox" name="priority" value="true" checked /> Priority attendee (ignore limit)
+            <input type="checkbox" name="priority" value="true" checked /> {{ localizer.get("admin.registrations.manual.priority") }}
         </label>
-        <button type="submit">Add registration</button>
+        <button type="submit">{{ localizer.get("admin.registrations.manual.submit") }}</button>
     </form>
 </div>
 {% endif %}
@@ -69,15 +69,15 @@
     {% if registrations %}
         <table>
             <thead>
-                <tr><th>Name</th><th>Category</th><th>Status</th><th>Priority</th><th>Notes</th><th>Actions</th></tr>
+                <tr><th>{{ localizer.get("admin.registrations.table.name") }}</th><th>{{ localizer.get("admin.registrations.table.category") }}</th><th>{{ localizer.get("admin.registrations.table.status") }}</th><th>{{ localizer.get("admin.registrations.table.priority") }}</th><th>{{ localizer.get("admin.registrations.table.notes") }}</th><th>{{ localizer.get("admin.registrations.table.actions") }}</th></tr>
             </thead>
             <tbody>
             {% for registration in registrations %}
                 <tr>
                     <td>{{ registration.name }}{% if registration.contact %}<br/><small>{{ registration.contact }}</small>{% endif %}</td>
-                    <td>{{ registration.category|title }}</td>
-                    <td>{{ registration.status|title }}</td>
-                    <td>{{ 'Yes' if registration.priority else 'No' }}</td>
+                    <td>{{ localizer.get("admin.categories." ~ registration.category) }}</td>
+                    <td>{{ localizer.get("admin.statuses." ~ registration.status) }}</td>
+                    <td>{{ localizer.get("admin.labels.yes") if registration.priority else localizer.get("admin.labels.no") }}</td>
                     <td>{{ registration.notes }}</td>
                     <td>
                         <div class="table-actions">
@@ -94,7 +94,7 @@
                             {% if allow_delete %}
                                 <form class="inline" method="post" action="/admin/registrations/{{ registration.id }}/delete">
                                     <input type="hidden" name="return_to" value="{{ return_to }}" />
-                                    <button type="submit" class="danger">Delete</button>
+                                    <button type="submit" class="danger">{{ localizer.get("admin.actions.delete") }}</button>
                                 </form>
                             {% endif %}
                         </div>

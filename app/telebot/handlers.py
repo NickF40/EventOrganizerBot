@@ -17,6 +17,7 @@ from telegram.ext import (
 
 from app.config import get_settings
 from app.database import session_scope
+from app.localization import DEFAULT_LOCALE, get_localizer
 from app.models import (
     AdminState,
     AdminStateType,
@@ -31,13 +32,21 @@ from app.models import (
 logger = logging.getLogger(__name__)
 
 
-MENU_APPLICATION = "Заявка"
-MENU_CANCEL = "Отмена заявки"
-MENU_FEEDBACK = "Отзыв"
-MENU_SCHEDULE = "Афиша"
-MENU_STATUS = "Статус"
-MENU_NOTIFICATIONS = "Нотификации"
-MENU_HOME = "На главную"
+def get_bot_localizer():
+    settings = get_settings()
+    locale = getattr(settings, "locale", DEFAULT_LOCALE)
+    return get_localizer(locale)
+
+
+LOCALIZER = get_bot_localizer()
+
+MENU_APPLICATION = LOCALIZER.get("bot.menu.application")
+MENU_CANCEL = LOCALIZER.get("bot.menu.cancel")
+MENU_FEEDBACK = LOCALIZER.get("bot.menu.feedback")
+MENU_SCHEDULE = LOCALIZER.get("bot.menu.schedule")
+MENU_STATUS = LOCALIZER.get("bot.menu.status")
+MENU_NOTIFICATIONS = LOCALIZER.get("bot.menu.notifications")
+MENU_HOME = LOCALIZER.get("bot.menu.home")
 
 APPLICATION_FULL_NAME = 1
 APPLICATION_JOB = 2
@@ -72,22 +81,21 @@ def home_keyboard() -> ReplyKeyboardMarkup:
 
 
 def notifications_text(enabled: bool) -> str:
-    status = "Включены" if enabled else "Выключены"
-    return (
-        f"[{status}] Бот будет присылать важные уведомления, когда админы их отправят "
-        "(в т.ч. можно заранее запланировать в Telegram). Рекомендуем оставить "
-        "включенными. Отключение: /notifications_disable, включение: /notifications_enable."
-    )
+    localizer = get_bot_localizer()
+    status_key = "bot.notifications.status.enabled" if enabled else "bot.notifications.status.disabled"
+    status = localizer.get(status_key)
+    return localizer.format("bot.notifications.message", status=status)
 
 
 def status_text(status: UserStatus) -> str:
+    localizer = get_bot_localizer()
     mapping = {
-        UserStatus.NONE: "Нет заявки",
-        UserStatus.PROCESSING: "Заявка в обработке",
-        UserStatus.ATTENDEE: "Участник",
-        UserStatus.WAITLIST: "Лист ожидания",
+        UserStatus.NONE: "bot.status.none",
+        UserStatus.PROCESSING: "bot.status.processing",
+        UserStatus.ATTENDEE: "bot.status.attendee",
+        UserStatus.WAITLIST: "bot.status.waitlist",
     }
-    return mapping[status]
+    return localizer.get(mapping[status])
 
 
 def get_or_create_event_state(session) -> EventState:
@@ -164,7 +172,10 @@ async def send_welcome_message(update: Update, template: MessageTemplate | None)
     if not update.effective_chat:
         return
     if not template:
-        await update.effective_chat.send_message("No message template: welcome_message")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(
+            localizer.get("bot.templates.missing_welcome")
+        )
         return
     await update.effective_chat.bot.copy_message(
         chat_id=update.effective_chat.id,
@@ -177,7 +188,10 @@ async def send_schedule_message(update: Update, template: MessageTemplate | None
     if not update.effective_chat:
         return
     if not template:
-        await update.effective_chat.send_message("No message template: schedule_message")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(
+            localizer.get("bot.templates.missing_schedule")
+        )
         return
     await update.effective_chat.bot.copy_message(
         chat_id=update.effective_chat.id,
@@ -197,10 +211,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         event_state = get_or_create_event_state(session)
         template = get_template(session, "welcome_message")
 
+    localizer = get_bot_localizer()
     await send_welcome_message(update, template)
     await context.bot.send_message(
         chat_id=chat.id,
-        text="Главное меню",
+        text=localizer.get("bot.messages.main_menu"),
         reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
     )
 
@@ -275,14 +290,15 @@ async def application_start(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return ConversationHandler.END
     with session_scope() as session:
         db_user, _ = upsert_user(session, user)
+    localizer = get_bot_localizer()
     if db_user.status != UserStatus.NONE:
         await update.effective_chat.send_message(
-            "Заявка уже создана.",
+            localizer.get("bot.application.already_created"),
             reply_markup=home_keyboard(),
         )
         return ConversationHandler.END
     await update.effective_chat.send_message(
-        "Как вас зовут? (Имя Фамилия)",
+        localizer.get("bot.application.ask_full_name"),
         reply_markup=home_keyboard(),
     )
     return APPLICATION_FULL_NAME
@@ -292,7 +308,8 @@ async def application_full_name(update: Update, context: ContextTypes.DEFAULT_TY
     if not update.message or not update.message.text:
         return APPLICATION_FULL_NAME
     context.user_data["full_name"] = update.message.text.strip()
-    await update.message.reply_text("Кем и где вы работаете? (позиция, компания)")
+    localizer = get_bot_localizer()
+    await update.message.reply_text(localizer.get("bot.application.ask_job"))
     return APPLICATION_JOB
 
 
@@ -300,7 +317,8 @@ async def application_job(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not update.message or not update.message.text:
         return APPLICATION_JOB
     context.user_data["job"] = update.message.text.strip()
-    await update.message.reply_text("Какой путь... (1)... (2)... В ответ напишите цифру")
+    localizer = get_bot_localizer()
+    await update.message.reply_text(localizer.get("bot.application.ask_career"))
     return APPLICATION_CAREER
 
 
@@ -319,8 +337,9 @@ async def application_career(update: Update, context: ContextTypes.DEFAULT_TYPE)
         db_user.career_path = career_path
         db_user.status = UserStatus.PROCESSING
         event_state = get_or_create_event_state(session)
+    localizer = get_bot_localizer()
     await chat.send_message(
-        "Спасибо за вашу заявку! Ожидайте новостей по мероприятию.",
+        localizer.get("bot.application.confirmation"),
         reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
     )
     context.user_data.clear()
@@ -336,8 +355,9 @@ async def application_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE)
         db_user, _ = upsert_user(session, user)
         event_state = get_or_create_event_state(session)
     context.user_data.clear()
+    localizer = get_bot_localizer()
     await chat.send_message(
-        "Главное меню",
+        localizer.get("bot.messages.main_menu"),
         reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
     )
     return ConversationHandler.END
@@ -355,8 +375,9 @@ async def cancel_application(update: Update, context: ContextTypes.DEFAULT_TYPE)
         db_user.job = None
         db_user.career_path = None
         event_state = get_or_create_event_state(session)
+    localizer = get_bot_localizer()
     await chat.send_message(
-        "Заявка отменена.",
+        localizer.get("bot.application.cancelled"),
         reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
     )
 
@@ -370,10 +391,11 @@ async def schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         db_user, _ = upsert_user(session, user)
         event_state = get_or_create_event_state(session)
         template = get_template(session, "schedule_message")
+    localizer = get_bot_localizer()
     await send_schedule_message(update, template)
     await context.bot.send_message(
         chat_id=chat.id,
-        text="Главное меню",
+        text=localizer.get("bot.messages.main_menu"),
         reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
     )
 
@@ -386,16 +408,15 @@ async def feedback_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     with session_scope() as session:
         db_user, _ = upsert_user(session, user)
         event_state = get_or_create_event_state(session)
+    localizer = get_bot_localizer()
     if not (event_state.event_started and db_user.status == UserStatus.ATTENDEE):
         await chat.send_message(
-            "Главное меню",
+            localizer.get("bot.messages.main_menu"),
             reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
         )
         return ConversationHandler.END
     await chat.send_message(
-        "Вы можете оставить отзыв на последнее мероприятие, в котором принимали участие. "
-        "Отправьте одно сообщение в свободной форме. Мы будем рады развернутому отзыву "
-        "по ссылке: <ссылка>",
+        localizer.get("bot.feedback.prompt"),
         reply_markup=home_keyboard(),
     )
     return FEEDBACK_TEXT
@@ -418,8 +439,9 @@ async def feedback_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             created_at=datetime.utcnow(),
         )
         session.add(feedback)
+    localizer = get_bot_localizer()
     await chat.send_message(
-        "Спасибо за ваш отзыв!",
+        localizer.get("bot.feedback.confirmation"),
         reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
     )
     return ConversationHandler.END
@@ -435,12 +457,10 @@ async def send_attendee_notification(bot, telegram_id: int) -> None:
         user = session.scalar(select(User).where(User.telegram_id == telegram_id))
         if not user or user.status != UserStatus.ATTENDEE:
             return
+    localizer = get_bot_localizer()
     await bot.send_message(
         chat_id=telegram_id,
-        text=(
-            "Статус обновлен: участник. Будем рады видеть вас на мероприятии. "
-            "Подробнее можно узнать в Афише."
-        ),
+        text=localizer.get("bot.status.attendee_notification"),
     )
 
 
@@ -452,9 +472,10 @@ async def handle_admin_payload(update: Update, context: ContextTypes.DEFAULT_TYP
         state = get_admin_state(session, user.id)
         if not state:
             return
+        localizer = get_bot_localizer()
         if state.waiting_for == AdminStateType.UPLOAD_DB:
             if not update.message.document:
-                await update.message.reply_text("Ожидается CSV-файл.")
+                await update.message.reply_text(localizer.get("bot.admin.errors.expected_csv"))
                 return
             await process_upload_database(update, context, state.admin_id)
             return
@@ -462,17 +483,17 @@ async def handle_admin_payload(update: Update, context: ContextTypes.DEFAULT_TYP
         if state.waiting_for == AdminStateType.WELCOME:
             set_template(session, "welcome_message", message.chat_id, message.message_id)
             clear_admin_state(session, user.id)
-            await update.message.reply_text("welcome_message сохранено.")
+            await update.message.reply_text(localizer.get("bot.admin.templates.saved_welcome"))
             return
         if state.waiting_for == AdminStateType.SCHEDULE:
             set_template(session, "schedule_message", message.chat_id, message.message_id)
             clear_admin_state(session, user.id)
-            await update.message.reply_text("schedule_message сохранено.")
+            await update.message.reply_text(localizer.get("bot.admin.templates.saved_schedule"))
             return
         if state.waiting_for in (AdminStateType.BROADCAST_ALL, AdminStateType.BROADCAST_ATTENDEE):
             if message.text and message.text.startswith("/"):
                 await update.message.reply_text(
-                    "Waiting for the notification message"
+                    localizer.get("bot.admin.broadcast.awaiting_message")
                 )
                 return
             clear_admin_state(session, user.id)
@@ -527,6 +548,18 @@ async def broadcast_payload(session, context, message, waiting_for: AdminStateTy
             logger.exception("Failed to send broadcast to %s", target.telegram_id)
 
 
+async def broadcast_text(bot, text: str) -> None:
+    with session_scope() as session:
+        users = session.execute(select(User)).scalars().all()
+    for user in users:
+        if not user.telegram_id:
+            continue
+        try:
+            await bot.send_message(chat_id=user.telegram_id, text=text)
+        except Exception:
+            logger.exception("Failed to send broadcast to %s", user.telegram_id)
+
+
 async def process_upload_database(
     update: Update, context: ContextTypes.DEFAULT_TYPE, admin_id: int
 ) -> None:
@@ -562,7 +595,8 @@ async def process_upload_database(
             if row.get("notifications_enabled") is not None:
                 user.notifications_enabled = row["notifications_enabled"].lower() == "true"
             user.updated_at = datetime.utcnow()
-    await update.message.reply_text("База данных обновлена.")
+    localizer = get_bot_localizer()
+    await update.message.reply_text(localizer.get("bot.admin.database.updated"))
 
 
 def ensure_admin(update: Update) -> bool:
@@ -570,7 +604,9 @@ def ensure_admin(update: Update) -> bool:
     if not user or not is_admin(user.username):
         if update.effective_chat:
             asyncio.create_task(
-                update.effective_chat.send_message("Unknown command or has no permission")
+                update.effective_chat.send_message(
+                    get_bot_localizer().get("bot.admin.errors.unknown_or_forbidden")
+                )
             )
         return False
     return True
@@ -598,7 +634,10 @@ async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         "/event_cancel",
         "/set_event_id {id}",
     ]
-    await update.effective_chat.send_message("Команды:\n" + "\n".join(commands))
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(
+        localizer.format("bot.admin.commands_list", commands="\n".join(commands))
+    )
 
 
 async def set_welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -609,7 +648,10 @@ async def set_welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.WELCOME)
-    await update.effective_chat.send_message("Ожидаю следующее сообщение для welcome_message.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(
+        localizer.get("bot.admin.templates.awaiting_welcome")
+    )
 
 
 async def set_schedule_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -620,7 +662,10 @@ async def set_schedule_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.SCHEDULE)
-    await update.effective_chat.send_message("Ожидаю следующее сообщение для schedule_message.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(
+        localizer.get("bot.admin.templates.awaiting_schedule")
+    )
 
 
 async def urgent_notification(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -631,7 +676,10 @@ async def urgent_notification(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.BROADCAST_ALL)
-    await update.effective_chat.send_message("Ожидаю следующее сообщение для рассылки всем.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(
+        localizer.get("bot.admin.broadcast.awaiting_all")
+    )
 
 
 async def urgent_notification_attendee(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -642,7 +690,10 @@ async def urgent_notification_attendee(update: Update, context: ContextTypes.DEF
         return
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.BROADCAST_ATTENDEE)
-    await update.effective_chat.send_message("Ожидаю следующее сообщение для рассылки участникам.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(
+        localizer.get("bot.admin.broadcast.awaiting_attendees")
+    )
 
 
 async def upload_database(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -653,7 +704,8 @@ async def upload_database(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.UPLOAD_DB)
-    await update.effective_chat.send_message("Ожидаю CSV-файл с пользователями.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(localizer.get("bot.admin.database.awaiting_upload"))
 
 
 async def download_database(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -727,7 +779,14 @@ async def check_applications(update: Update, context: ContextTypes.DEFAULT_TYPE)
         users = session.execute(select(User)).scalars().all()
     applications = [user for user in users if user.status != UserStatus.NONE]
     attendee_count = len([user for user in users if user.status == UserStatus.ATTENDEE])
-    lines = [f"applications: {len(applications)} | attendee: {attendee_count}"]
+    localizer = get_bot_localizer()
+    lines = [
+        localizer.format(
+            "bot.admin.applications.summary",
+            applications=len(applications),
+            attendees=attendee_count,
+        )
+    ]
     for user in applications:
         label = f"@{user.username}" if user.username else str(user.telegram_id)
         lines.append(f"{label} -> {user.status.value}")
@@ -749,19 +808,22 @@ async def update_status_by_username(
         return
     parts = update.message.text.split(maxsplit=1)
     if len(parts) < 2:
-        await update.effective_chat.send_message("Нужен nickname.")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(localizer.get("bot.admin.errors.nickname_required"))
         return
     nickname = parse_username(parts[1])
     with session_scope() as session:
         user = session.scalar(select(User).where(User.username.ilike(nickname)))
         if not user:
-            await update.effective_chat.send_message("Пользователь не найден.")
+            localizer = get_bot_localizer()
+            await update.effective_chat.send_message(localizer.get("bot.admin.errors.user_not_found"))
             return
         user.status = status
         user.updated_at = datetime.utcnow()
         if status == UserStatus.ATTENDEE:
             asyncio.create_task(send_attendee_notification(context.bot, user.telegram_id))
-    await update.effective_chat.send_message("Статус обновлен.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(localizer.get("bot.admin.status.updated"))
 
 
 async def update_status_by_id(
@@ -773,23 +835,27 @@ async def update_status_by_id(
         return
     parts = update.message.text.split(maxsplit=1)
     if len(parts) < 2:
-        await update.effective_chat.send_message("Нужен user_id.")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(localizer.get("bot.admin.errors.user_id_required"))
         return
     try:
         user_id = int(parts[1])
     except ValueError:
-        await update.effective_chat.send_message("Неверный user_id.")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(localizer.get("bot.admin.errors.user_id_invalid"))
         return
     with session_scope() as session:
         user = session.scalar(select(User).where(User.telegram_id == user_id))
         if not user:
-            await update.effective_chat.send_message("Пользователь не найден.")
+            localizer = get_bot_localizer()
+            await update.effective_chat.send_message(localizer.get("bot.admin.errors.user_not_found"))
             return
         user.status = status
         user.updated_at = datetime.utcnow()
         if status == UserStatus.ATTENDEE:
             asyncio.create_task(send_attendee_notification(context.bot, user.telegram_id))
-    await update.effective_chat.send_message("Статус обновлен.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(localizer.get("bot.admin.status.updated"))
 
 
 async def event_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -798,7 +864,10 @@ async def event_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     with session_scope() as session:
         state = get_or_create_event_state(session)
         state.event_started = True
-    await update.effective_chat.send_message("event_started=true")
+    localizer = get_bot_localizer()
+    if update.effective_chat:
+        await update.effective_chat.send_message(localizer.get("bot.admin.event_started"))
+    await broadcast_text(context.bot, localizer.get("bot.messages.event_started_broadcast"))
 
 
 async def event_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -807,7 +876,9 @@ async def event_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     with session_scope() as session:
         state = get_or_create_event_state(session)
         state.event_started = False
-    await update.effective_chat.send_message("event_started=false")
+    localizer = get_bot_localizer()
+    if update.effective_chat:
+        await update.effective_chat.send_message(localizer.get("bot.admin.event_cancelled"))
 
 
 async def set_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -817,12 +888,14 @@ async def set_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
     parts = update.message.text.split(maxsplit=1)
     if len(parts) < 2:
-        await update.effective_chat.send_message("Нужен id.")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(localizer.get("bot.admin.errors.event_id_required"))
         return
     with session_scope() as session:
         state = get_or_create_event_state(session)
         state.current_event_id = parts[1]
-    await update.effective_chat.send_message("event_id обновлен.")
+    localizer = get_bot_localizer()
+    await update.effective_chat.send_message(localizer.get("bot.admin.event_id_updated"))
 
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -830,9 +903,11 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not user or not update.effective_chat:
         return
     if not is_admin(user.username):
-        await update.effective_chat.send_message("Unknown command or has no permission")
+        await update.effective_chat.send_message(
+            get_bot_localizer().get("bot.admin.errors.unknown_or_forbidden")
+        )
     else:
-        await update.effective_chat.send_message("Unknown command")
+        await update.effective_chat.send_message(get_bot_localizer().get("bot.admin.errors.unknown"))
 
 
 def register(application: Application) -> None:

@@ -11,6 +11,7 @@ from .utils import config_path, parse_admin_usernames
 class Settings(BaseSettings):
     telegram_token: str = Field(..., env="TELEGRAM_TOKEN")
     admin_usernames: List[str] = Field(default_factory=list, env="ADMIN_USERNAMES")
+    locale: str = Field(default="en", env="LOCALE")
 
     database_url: str = Field(
         default="sqlite:///./anonchatbot.db",

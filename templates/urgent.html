@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Urgent notification</h1>
+<h1>{{ localizer.get("admin.urgent.title") }}</h1>
 <div class="card">
     <form method="post">
-        <label>Message to send everyone
+        <label>{{ localizer.get("admin.urgent.message_label") }}
             <textarea name="message" rows="4" required>{{ message or '' }}</textarea>
         </label>
-        <button type="submit">Send now</button>
+        <button type="submit">{{ localizer.get("admin.urgent.send") }}</button>
     </form>
     {% if delivered is not none %}
-        <p class="success">Delivered to {{ delivered }} users.</p>
+        <p class="success">{{ localizer.format("admin.urgent.delivered", delivered=delivered) }}</p>
     {% endif %}
 </div>
 {% endblock %}
