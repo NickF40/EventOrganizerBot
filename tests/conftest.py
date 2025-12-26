@@ -150,4 +150,3 @@ def _install_apscheduler_stubs() -> None:
 
 _install_telegram_stubs()
 _install_apscheduler_stubs()
-
