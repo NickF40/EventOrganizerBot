@@ -42,6 +42,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     def current_localizer():
         return get_localizer(app.state.settings.locale)
 
+    def template_context(request: Request, **kwargs: object) -> dict[str, object]:
+        return {"request": request, "localizer": current_localizer(), **kwargs}
+
     def admin_auth(
         request: Request,
         credentials: HTTPBasicCredentials = Depends(security),
@@ -145,16 +148,16 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         }
         return templates.TemplateResponse(
             "dashboard.html",
-            {
-                "request": request,
-                "event": event,
-                "status_summary": status_summary,
-                "category_summary": category_summary,
-                "upcoming": upcoming_view,
-                "timezone": settings.timezone,
-                "timezone_persisted": settings.can_persist_timezone,
-                "flash": request.query_params.get("msg"),
-            },
+            template_context(
+                request,
+                event=event,
+                status_summary=status_summary,
+                category_summary=category_summary,
+                upcoming=upcoming_view,
+                timezone=settings.timezone,
+                timezone_persisted=settings.can_persist_timezone,
+                flash=request.query_params.get("msg"),
+            ),
         )
 
     @app.get("/admin/posts")
@@ -200,15 +203,15 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         ]
         return templates.TemplateResponse(
             "posts.html",
-            {
-                "request": request,
-                "upcoming": upcoming_view,
-                "sent": sent_view,
-                "event_name": settings.event_name,
-                "timezone": settings.timezone,
-                "timezone_persisted": settings.can_persist_timezone,
-                "flash": request.query_params.get("msg"),
-            },
+            template_context(
+                request,
+                upcoming=upcoming_view,
+                sent=sent_view,
+                event_name=settings.event_name,
+                timezone=settings.timezone,
+                timezone_persisted=settings.can_persist_timezone,
+                flash=request.query_params.get("msg"),
+            ),
         )
 
     @app.post("/admin/posts")
@@ -220,11 +223,13 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         try:
             send_at_dt = datetime.fromisoformat(send_at)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date format"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=localizer.get("admin.errors.invalid_date_format"),
             ) from exc
         if send_at_dt.tzinfo is None:
             send_at_dt = send_at_dt.replace(tzinfo=settings.tzinfo)
@@ -235,7 +240,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             content=content,
             send_at=send_at_dt.astimezone(timezone.utc),
         )
-        return redirect_with_message("/admin/posts", "Scheduled new post")
+        return redirect_with_message(
+            "/admin/posts", localizer.get("admin.posts.flash.scheduled")
+        )
 
     @app.post("/admin/settings/timezone")
     async def update_timezone(
@@ -243,11 +250,12 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         return_to: str | None = Form(None),
         _: str = Depends(admin_auth),
     ):
+        localizer = current_localizer()
         normalized = timezone_value.strip()
         if not normalized:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Timezone is required",
+                detail=localizer.get("admin.errors.timezone_required"),
             )
 
         try:
@@ -255,16 +263,17 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
+                detail=localizer.get("admin.errors.invalid_timezone"),
             ) from exc
 
         suffix = ""
         if not persisted:
-            suffix = " (not saved to disk)"
+            suffix = localizer.get("admin.timezone.not_saved_suffix")
 
         redirect_path = safe_redirect_path(return_to, "/admin")
         return redirect_with_message(
-            redirect_path, f"Timezone updated to {normalized}{suffix}"
+            redirect_path,
+            localizer.format("admin.timezone.updated", timezone=normalized, suffix=suffix),
         )
 
     @app.post("/admin/posts/{post_id}/cancel")
@@ -274,27 +283,34 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         post = session.get(ScheduledPost, post_id)
         if not post:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=localizer.get("admin.errors.post_not_found"),
+            )
         if post.sent_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot cancel a post that has already been sent",
+                detail=localizer.get("admin.errors.post_already_sent"),
             )
         session.delete(post)
         session.flush()
-        return redirect_with_message("/admin/posts", "Post cancelled")
+        return redirect_with_message(
+            "/admin/posts", localizer.get("admin.posts.flash.cancelled")
+        )
 
     def make_action(
-        label: str,
+        label_key: str,
         status_value: str,
         *,
         priority: bool | None = None,
         css_class: str | None = None,
     ) -> dict[str, str | bool | None]:
+        localizer = current_localizer()
         return {
-            "label": label,
+            "label": localizer.get(label_key),
             "status": status_value,
             "priority": priority,
             "class": css_class or "",
@@ -341,60 +357,68 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         )
         return templates.TemplateResponse(
             "registrations_list.html",
-            {
-                "request": request,
-                "title": title,
-                "table_title": table_title,
-                "registrations": registration_views,
-                "empty_message": empty_message,
-                "show_manual_form": show_manual_form,
-                "allow_delete": allow_delete,
-                "return_to": request.url.path,
-                "event": event,
-                "approved_attendee_count": get_approved_attendee_count(session, event),
-                "pending_count": pending_count,
-                "flash": request.query_params.get("msg"),
-            },
+            template_context(
+                request,
+                title=title,
+                table_title=table_title,
+                registrations=registration_views,
+                empty_message=empty_message,
+                show_manual_form=show_manual_form,
+                allow_delete=allow_delete,
+                return_to=request.url.path,
+                event=event,
+                approved_attendee_count=get_approved_attendee_count(session, event),
+                pending_count=pending_count,
+                flash=request.query_params.get("msg"),
+            ),
         )
 
     def pending_actions(_: Registration) -> list[dict[str, str | bool | None]]:
         return [
-            make_action("Approve", "approved", priority=False),
-            make_action("Approve as priority", "approved", priority=True, css_class="secondary"),
-            make_action("Waitlist", "waitlisted", css_class="secondary"),
-            make_action("Reject", "rejected", css_class="danger"),
+            make_action("admin.actions.approve", "approved", priority=False),
+            make_action(
+                "admin.actions.approve_priority", "approved", priority=True, css_class="secondary"
+            ),
+            make_action("admin.actions.waitlist", "waitlisted", css_class="secondary"),
+            make_action("admin.actions.reject", "rejected", css_class="danger"),
         ]
 
     def approved_actions(_: Registration) -> list[dict[str, str | bool | None]]:
         return [
-            make_action("Mark as priority", "approved", priority=True, css_class="secondary"),
-            make_action("Waitlist", "waitlisted", css_class="secondary"),
-            make_action("Reject", "rejected", css_class="danger"),
-            make_action("Reset to pending", "pending", css_class="secondary"),
+            make_action(
+                "admin.actions.mark_priority", "approved", priority=True, css_class="secondary"
+            ),
+            make_action("admin.actions.waitlist", "waitlisted", css_class="secondary"),
+            make_action("admin.actions.reject", "rejected", css_class="danger"),
+            make_action("admin.actions.reset_pending", "pending", css_class="secondary"),
         ]
 
     def approved_priority_actions(_: Registration) -> list[dict[str, str | bool | None]]:
         return [
-            make_action("Mark as regular", "approved", priority=False),
-            make_action("Waitlist", "waitlisted", css_class="secondary"),
-            make_action("Reject", "rejected", css_class="danger"),
-            make_action("Reset to pending", "pending", css_class="secondary"),
+            make_action("admin.actions.mark_regular", "approved", priority=False),
+            make_action("admin.actions.waitlist", "waitlisted", css_class="secondary"),
+            make_action("admin.actions.reject", "rejected", css_class="danger"),
+            make_action("admin.actions.reset_pending", "pending", css_class="secondary"),
         ]
 
     def waitlisted_actions(_: Registration) -> list[dict[str, str | bool | None]]:
         return [
-            make_action("Approve", "approved", priority=False),
-            make_action("Approve as priority", "approved", priority=True, css_class="secondary"),
-            make_action("Reject", "rejected", css_class="danger"),
-            make_action("Reset to pending", "pending", css_class="secondary"),
+            make_action("admin.actions.approve", "approved", priority=False),
+            make_action(
+                "admin.actions.approve_priority", "approved", priority=True, css_class="secondary"
+            ),
+            make_action("admin.actions.reject", "rejected", css_class="danger"),
+            make_action("admin.actions.reset_pending", "pending", css_class="secondary"),
         ]
 
     def declined_actions(_: Registration) -> list[dict[str, str | bool | None]]:
         return [
-            make_action("Approve", "approved", priority=False),
-            make_action("Approve as priority", "approved", priority=True, css_class="secondary"),
-            make_action("Waitlist", "waitlisted", css_class="secondary"),
-            make_action("Reset to pending", "pending", css_class="secondary"),
+            make_action("admin.actions.approve", "approved", priority=False),
+            make_action(
+                "admin.actions.approve_priority", "approved", priority=True, css_class="secondary"
+            ),
+            make_action("admin.actions.waitlist", "waitlisted", css_class="secondary"),
+            make_action("admin.actions.reset_pending", "pending", css_class="secondary"),
         ]
 
     def base_registration_query(event, status_filter):
@@ -413,6 +437,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
         registrations = (
             session.execute(
@@ -426,9 +451,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             session,
             event=event,
             registrations=registrations,
-            title="Pending registrations",
-            table_title="Waiting for review",
-            empty_message="No registrations are waiting for review.",
+            title=localizer.get("admin.registrations.pending.title"),
+            table_title=localizer.get("admin.registrations.pending.table_title"),
+            empty_message=localizer.get("admin.registrations.pending.empty"),
             actions_builder=pending_actions,
             show_manual_form=True,
             allow_delete=True,
@@ -440,6 +465,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
         base_query = base_registration_query(
             event, Registration.status == RegistrationStatus.APPROVED
@@ -450,9 +476,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             session,
             event=event,
             registrations=registrations,
-            title="Approved registrations",
-            table_title="Approved attendees",
-            empty_message="No approved registrations yet.",
+            title=localizer.get("admin.registrations.approved.title"),
+            table_title=localizer.get("admin.registrations.approved.table_title"),
+            empty_message=localizer.get("admin.registrations.approved.empty"),
             actions_builder=approved_actions,
         )
 
@@ -462,6 +488,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
         base_query = base_registration_query(
             event, Registration.status == RegistrationStatus.APPROVED
@@ -472,9 +499,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             session,
             event=event,
             registrations=registrations,
-            title="Priority approvals",
-            table_title="Approved with priority",
-            empty_message="No priority approvals yet.",
+            title=localizer.get("admin.registrations.priority.title"),
+            table_title=localizer.get("admin.registrations.priority.table_title"),
+            empty_message=localizer.get("admin.registrations.priority.empty"),
             actions_builder=approved_priority_actions,
         )
 
@@ -484,6 +511,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
         registrations = (
             session.execute(
@@ -497,9 +525,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             session,
             event=event,
             registrations=registrations,
-            title="Waitlisted registrations",
-            table_title="Waitlisted attendees",
-            empty_message="No waitlisted registrations.",
+            title=localizer.get("admin.registrations.waitlisted.title"),
+            table_title=localizer.get("admin.registrations.waitlisted.table_title"),
+            empty_message=localizer.get("admin.registrations.waitlisted.empty"),
             actions_builder=waitlisted_actions,
         )
 
@@ -509,6 +537,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
         registrations = (
             session.execute(
@@ -522,9 +551,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             session,
             event=event,
             registrations=registrations,
-            title="Declined registrations",
-            table_title="Declined applicants",
-            empty_message="No declined registrations.",
+            title=localizer.get("admin.registrations.declined.title"),
+            table_title=localizer.get("admin.registrations.declined.table_title"),
+            empty_message=localizer.get("admin.registrations.declined.empty"),
             actions_builder=declined_actions,
         )
 
@@ -538,17 +567,20 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         registration = session.get(Registration, registration_id)
         if not registration:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Registration not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=localizer.get("admin.errors.registration_not_found"),
             )
 
         try:
             status_enum = RegistrationStatus(status_value)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown status"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=localizer.get("admin.errors.unknown_status"),
             ) from exc
 
         if priority_value is None:
@@ -565,7 +597,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             )
         except CapacityError:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail="Attendee limit reached"
+                status_code=status.HTTP_409_CONFLICT,
+                detail=localizer.get("admin.errors.attendee_limit_reached"),
             )
 
         session.flush()
@@ -600,15 +633,19 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         registration = session.get(Registration, registration_id)
         if not registration:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Registration not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=localizer.get("admin.errors.registration_not_found"),
             )
         session.delete(registration)
         session.flush()
         redirect_path = safe_redirect_path(return_to, "/admin/registrations")
-        return redirect_with_message(redirect_path, "Registration deleted")
+        return redirect_with_message(
+            redirect_path, localizer.get("admin.registrations.flash.deleted")
+        )
 
     @app.post("/admin/registrations/manual")
     async def add_manual_registration(
@@ -622,11 +659,13 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         _: str = Depends(admin_auth),
         session: Session = Depends(get_session),
     ):
+        localizer = current_localizer()
         try:
             category = RegistrationCategory(category_value)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=localizer.get("admin.errors.unknown_category"),
             ) from exc
 
         event = get_or_create_default_event(session, settings)
@@ -646,9 +685,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     async def urgent(request: Request, _: str = Depends(admin_auth)):
         return templates.TemplateResponse(
             "urgent.html",
-            {
-                "request": request,
-            },
+            template_context(request),
         )
 
     @app.post("/admin/urgent")
@@ -661,11 +698,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         delivered = await broadcast_message(session, request.app.state.bot, message)
         return templates.TemplateResponse(
             "urgent.html",
-            {
-                "request": request,
-                "delivered": delivered,
-                "message": message,
-            },
+            template_context(request, delivered=delivered, message=message),
         )
 
     @app.post("/admin/event/limit")
@@ -676,28 +709,29 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         session: Session = Depends(get_session),
     ):
         event = get_or_create_default_event(session, settings)
+        localizer = current_localizer()
 
         normalized = limit.strip()
         if not normalized:
             event.capacity = None
             object.__setattr__(settings, "attendee_limit", None)
-            message = "Attendee limit removed"
+            message = localizer.get("admin.registrations.flash.limit_removed")
         else:
             try:
                 new_limit = int(normalized)
             except ValueError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Limit must be an integer",
+                    detail=localizer.get("admin.errors.limit_integer"),
                 ) from exc
             if new_limit < 0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Limit must be zero or greater",
+                    detail=localizer.get("admin.errors.limit_non_negative"),
                 )
             event.capacity = new_limit
             object.__setattr__(settings, "attendee_limit", new_limit)
-            message = "Attendee limit updated"
+            message = localizer.get("admin.registrations.flash.limit_updated")
 
         session.flush()
         return redirect_with_message("/admin/registrations", message)

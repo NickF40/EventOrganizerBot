@@ -44,5 +44,273 @@
     "approved_priority": "Great news! You've been approved for the event.",
     "rejected": "Unfortunately we can't confirm your spot this time.",
     "waitlisted": "You're still on the waiting list. We'll keep you updated."
+  },
+  "bot": {
+    "menu": {
+      "application": "Заявка",
+      "cancel": "Отмена заявки",
+      "feedback": "Отзыв",
+      "schedule": "Афиша",
+      "status": "Статус",
+      "notifications": "Нотификации",
+      "home": "На главную"
+    },
+    "notifications": {
+      "status": {
+        "enabled": "Включены",
+        "disabled": "Выключены"
+      },
+      "message": "[{status}] Бот будет присылать важные уведомления, когда админы их отправят (в т.ч. можно заранее запланировать в Telegram). Рекомендуем оставить включенными. Отключение: /notifications_disable, включение: /notifications_enable."
+    },
+    "status": {
+      "none": "Нет заявки",
+      "processing": "Заявка в обработке",
+      "attendee": "Участник",
+      "waitlist": "Лист ожидания",
+      "attendee_notification": "Статус обновлен: участник. Будем рады видеть вас на мероприятии. Подробнее можно узнать в Афише."
+    },
+    "templates": {
+      "missing_welcome": "No message template: welcome_message",
+      "missing_schedule": "No message template: schedule_message"
+    },
+    "messages": {
+      "main_menu": "Главное меню",
+      "event_started_broadcast": "Мероприятие началось! Следите за обновлениями в боте."
+    },
+    "application": {
+      "already_created": "Заявка уже создана.",
+      "ask_full_name": "Как вас зовут? (Имя Фамилия)",
+      "ask_job": "Кем и где вы работаете? (позиция, компания)",
+      "ask_career": "Какой путь... (1)... (2)... В ответ напишите цифру",
+      "confirmation": "Спасибо за вашу заявку! Ожидайте новостей по мероприятию.",
+      "cancelled": "Заявка отменена."
+    },
+    "feedback": {
+      "prompt": "Вы можете оставить отзыв на последнее мероприятие, в котором принимали участие. Отправьте одно сообщение в свободной форме. Мы будем рады развернутому отзыву по ссылке: <ссылка>",
+      "confirmation": "Спасибо за ваш отзыв!"
+    },
+    "admin": {
+      "errors": {
+        "expected_csv": "Ожидается CSV-файл.",
+        "unknown_or_forbidden": "Unknown command or has no permission",
+        "unknown": "Unknown command",
+        "nickname_required": "Нужен nickname.",
+        "user_not_found": "Пользователь не найден.",
+        "user_id_required": "Нужен user_id.",
+        "user_id_invalid": "Неверный user_id.",
+        "event_id_required": "Нужен id."
+      },
+      "templates": {
+        "saved_welcome": "welcome_message сохранено.",
+        "saved_schedule": "schedule_message сохранено.",
+        "awaiting_welcome": "Ожидаю следующее сообщение для welcome_message.",
+        "awaiting_schedule": "Ожидаю следующее сообщение для schedule_message."
+      },
+      "broadcast": {
+        "awaiting_message": "Waiting for the notification message",
+        "awaiting_all": "Ожидаю следующее сообщение для рассылки всем.",
+        "awaiting_attendees": "Ожидаю следующее сообщение для рассылки участникам."
+      },
+      "database": {
+        "updated": "База данных обновлена.",
+        "awaiting_upload": "Ожидаю CSV-файл с пользователями."
+      },
+      "commands_list": "Команды:\n{commands}",
+      "applications": {
+        "summary": "applications: {applications} | attendee: {attendees}"
+      },
+      "status": {
+        "updated": "Статус обновлен."
+      },
+      "event_started": "event_started=true",
+      "event_cancelled": "event_started=false",
+      "event_id_updated": "event_id обновлен."
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "nav": {
+      "brand": "Event admin",
+      "dashboard": "Dashboard",
+      "posts": "Scheduled posts",
+      "registrations": "Registrations",
+      "pending": "Pending",
+      "approved": "Approved",
+      "priority": "Priority",
+      "waitlisted": "Waitlisted",
+      "declined": "Declined",
+      "urgent": "Urgent message"
+    },
+    "dashboard": {
+      "title": "Event overview",
+      "subtitle": "Quick snapshot of attendance, capacity and scheduled communications.",
+      "timezone_label": "Timezone: {timezone}",
+      "timezone_warning": "Changes are kept in memory only.",
+      "pending_review": "Pending review",
+      "current_limit": "Current limit",
+      "no_limit": "No limit",
+      "approved": "Approved",
+      "priority_approvals": "Priority approvals",
+      "waitlisted": "Waitlisted",
+      "declined": "Declined",
+      "summary_title": "Event summary",
+      "attendee_limit_label": "Attendee limit:",
+      "no_limit_set": "No limit set",
+      "waiting_to_process": "Waiting to be processed:",
+      "by_category": "Registrations by category",
+      "upcoming_posts": "Upcoming posts",
+      "upcoming_help": "All times are displayed in {timezone}.",
+      "no_upcoming_posts": "No upcoming posts scheduled."
+    },
+    "posts": {
+      "title": "Scheduled posts for {event_name}",
+      "flash": {
+        "scheduled": "Scheduled new post",
+        "cancelled": "Post cancelled"
+      },
+      "timezone": {
+        "title": "Timezone preferences",
+        "help": "All times below are displayed as {timezone}.",
+        "warning": "No config file detected – the choice will reset after restart.",
+        "label": "Timezone",
+        "save": "Save timezone"
+      },
+      "new": {
+        "title": "Plan a new announcement",
+        "help": "Provide the local send time; we will handle the UTC conversion.",
+        "fields": {
+          "title": "Title",
+          "content": "Content",
+          "send_at": "Send at ({timezone})"
+        },
+        "submit": "Schedule post"
+      },
+      "upcoming": {
+        "title": "Upcoming posts",
+        "help": "Showing local time in {timezone}.",
+        "empty": "No posts scheduled yet."
+      },
+      "sent": {
+        "title": "Recently sent",
+        "help": "Timestamps reflect {timezone}.",
+        "empty": "No posts sent yet.",
+        "empty_date": "—"
+      },
+      "table": {
+        "title": "Title",
+        "scheduled": "Scheduled",
+        "send_at": "Send at",
+        "sent_at": "Sent at"
+      }
+    },
+    "registrations": {
+      "pending": {
+        "title": "Pending registrations",
+        "table_title": "Waiting for review",
+        "empty": "No registrations are waiting for review."
+      },
+      "approved": {
+        "title": "Approved registrations",
+        "table_title": "Approved attendees",
+        "empty": "No approved registrations yet."
+      },
+      "priority": {
+        "title": "Priority approvals",
+        "table_title": "Approved with priority",
+        "empty": "No priority approvals yet."
+      },
+      "waitlisted": {
+        "title": "Waitlisted registrations",
+        "table_title": "Waitlisted attendees",
+        "empty": "No waitlisted registrations."
+      },
+      "declined": {
+        "title": "Declined registrations",
+        "table_title": "Declined applicants",
+        "empty": "No declined registrations."
+      },
+      "capacity": {
+        "title": "Event capacity",
+        "approved": "Approved attendees:",
+        "no_limit": "(no limit)",
+        "pending": "Waiting to review:",
+        "view": "view",
+        "limit_label": "Attendee limit",
+        "limit_placeholder": "Leave blank for no limit",
+        "limit_help": "Leave blank to remove the limit.",
+        "save": "Save limit"
+      },
+      "manual": {
+        "title": "Add attendee manually",
+        "display_name": "Display name",
+        "contact": "Contact info",
+        "contact_placeholder": "Email, phone, etc.",
+        "category": "Category",
+        "notes": "Notes",
+        "priority": "Priority attendee (ignore limit)",
+        "submit": "Add registration"
+      },
+      "table": {
+        "name": "Name",
+        "category": "Category",
+        "status": "Status",
+        "priority": "Priority",
+        "notes": "Notes",
+        "actions": "Actions"
+      },
+      "flash": {
+        "deleted": "Registration deleted",
+        "limit_removed": "Attendee limit removed",
+        "limit_updated": "Attendee limit updated"
+      }
+    },
+    "urgent": {
+      "title": "Urgent notification",
+      "message_label": "Message to send everyone",
+      "send": "Send now",
+      "delivered": "Delivered to {delivered} users."
+    },
+    "actions": {
+      "approve": "Approve",
+      "approve_priority": "Approve as priority",
+      "waitlist": "Waitlist",
+      "reject": "Reject",
+      "mark_priority": "Mark as priority",
+      "reset_pending": "Reset to pending",
+      "mark_regular": "Mark as regular",
+      "delete": "Delete"
+    },
+    "labels": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "categories": {
+      "attendee": "Attendee",
+      "lecturer": "Lecturer",
+      "showcase": "Project showcase"
+    },
+    "statuses": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "waitlisted": "Waitlisted",
+      "rejected": "Declined"
+    },
+    "timezone": {
+      "updated": "Timezone updated to {timezone}{suffix}",
+      "not_saved_suffix": " (not saved to disk)"
+    },
+    "errors": {
+      "invalid_date_format": "Invalid date format",
+      "timezone_required": "Timezone is required",
+      "invalid_timezone": "Invalid timezone",
+      "post_not_found": "Post not found",
+      "post_already_sent": "Cannot cancel a post that has already been sent",
+      "registration_not_found": "Registration not found",
+      "unknown_status": "Unknown status",
+      "attendee_limit_reached": "Attendee limit reached",
+      "unknown_category": "Unknown category",
+      "limit_integer": "Limit must be an integer",
+      "limit_non_negative": "Limit must be zero or greater"
+    }
   }
 }

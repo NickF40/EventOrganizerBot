@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>{{ title or 'Admin' }}</title>
+    <title>{{ title or localizer.get("admin.title") }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         :root {
@@ -317,21 +317,21 @@
 <body>
 <header>
     <div class="nav-bar">
-        <div class="nav-brand">Event admin</div>
+        <div class="nav-brand">{{ localizer.get("admin.nav.brand") }}</div>
         <nav>
-            <a href="/admin">Dashboard</a>
-            <a href="/admin/posts">Scheduled posts</a>
+            <a href="/admin">{{ localizer.get("admin.nav.dashboard") }}</a>
+            <a href="/admin/posts">{{ localizer.get("admin.nav.posts") }}</a>
             <details class="nav-dropdown">
-                <summary>Registrations</summary>
+                <summary>{{ localizer.get("admin.nav.registrations") }}</summary>
                 <div class="dropdown-panel">
-                    <a href="/admin/registrations">Pending</a>
-                    <a href="/admin/registrations/approved">Approved</a>
-                    <a href="/admin/registrations/approved-priority">Priority</a>
-                    <a href="/admin/registrations/waitlisted">Waitlisted</a>
-                    <a href="/admin/registrations/declined">Declined</a>
+                    <a href="/admin/registrations">{{ localizer.get("admin.nav.pending") }}</a>
+                    <a href="/admin/registrations/approved">{{ localizer.get("admin.nav.approved") }}</a>
+                    <a href="/admin/registrations/approved-priority">{{ localizer.get("admin.nav.priority") }}</a>
+                    <a href="/admin/registrations/waitlisted">{{ localizer.get("admin.nav.waitlisted") }}</a>
+                    <a href="/admin/registrations/declined">{{ localizer.get("admin.nav.declined") }}</a>
                 </div>
             </details>
-            <a href="/admin/urgent">Urgent message</a>
+            <a href="/admin/urgent">{{ localizer.get("admin.nav.urgent") }}</a>
         </nav>
     </div>
 </header>
