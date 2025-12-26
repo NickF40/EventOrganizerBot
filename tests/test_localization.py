@@ -4,9 +4,7 @@ from app.localization import DEFAULT_LOCALE, get_localizer
 def test_localizer_returns_known_strings():
     localizer = get_localizer(DEFAULT_LOCALE)
     assert localizer.get("buttons.attend") == "Attend the event"
-    formatted = localizer.format(
-        "start.returning", name="Alex", summary="• Attendee: Approved"
-    )
+    formatted = localizer.format("start.returning", name="Alex", summary="• Attendee: Approved")
     assert "Alex" in formatted
     assert "Approved" in formatted
 

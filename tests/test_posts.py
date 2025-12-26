@@ -66,9 +66,7 @@ def test_broadcast_post_marks_sent_and_unsubscribes():
             return FakeResult()
 
     session = FakeSession()
-    bot = SimpleNamespace(
-        send_message=AsyncMock(side_effect=[None, TelegramError("oops")])
-    )
+    bot = SimpleNamespace(send_message=AsyncMock(side_effect=[None, TelegramError("oops")]))
     post = SimpleNamespace(id=5, title="Title", content="Content", sent_at=None)
 
     asyncio.run(posts.broadcast_post(session, bot, post))

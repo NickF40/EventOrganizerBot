@@ -121,7 +121,7 @@ def test_registrations_page_includes_limit_form(admin_client, monkeypatch):
     assert response.status_code == 200
     assert "Attendee limit" in response.text
     assert "Leave blank to remove the limit." in response.text
-    assert "value=\"50\"" in response.text
+    assert 'value="50"' in response.text
 
 
 def test_dashboard_renders_summary(admin_client):
@@ -130,14 +130,22 @@ def test_dashboard_renders_summary(admin_client):
     event = SimpleNamespace(id=1, name="Community Event", capacity=100)
     session.scalar.side_effect = [event, 2]
     session.execute.side_effect = [
-        MagicMock(all=MagicMock(return_value=[
-            (RegistrationStatus.APPROVED, 5),
-            (RegistrationStatus.WAITLISTED, 1),
-        ])),
-        MagicMock(all=MagicMock(return_value=[
-            (RegistrationCategory.ATTENDEE, 10),
-            (RegistrationCategory.LECTURER, 3),
-        ])),
+        MagicMock(
+            all=MagicMock(
+                return_value=[
+                    (RegistrationStatus.APPROVED, 5),
+                    (RegistrationStatus.WAITLISTED, 1),
+                ]
+            )
+        ),
+        MagicMock(
+            all=MagicMock(
+                return_value=[
+                    (RegistrationCategory.ATTENDEE, 10),
+                    (RegistrationCategory.LECTURER, 3),
+                ]
+            )
+        ),
         _make_scalar_result([]),
     ]
 
@@ -375,4 +383,3 @@ def test_update_status_updates_registration(admin_client, monkeypatch):
         "admin_notifications.approved_priority"
     )
     assert bot.send_message.call_args.kwargs["text"] == expected_message
-

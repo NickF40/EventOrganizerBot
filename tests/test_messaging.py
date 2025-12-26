@@ -35,9 +35,7 @@ def test_broadcast_message_delivers_and_unsubscribes():
         SimpleNamespace(id=3, telegram_id=200, is_subscribed=True),
     ]
     session = FakeSession(users)
-    bot = SimpleNamespace(
-        send_message=AsyncMock(side_effect=[None, TelegramError("failed")])
-    )
+    bot = SimpleNamespace(send_message=AsyncMock(side_effect=[None, TelegramError("failed")]))
 
     delivered = asyncio.run(messaging.broadcast_message(session, bot, "Hello"))
 
