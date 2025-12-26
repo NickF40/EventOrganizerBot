@@ -1,94 +1,45 @@
 # Event Telegram Bot
 
-A modernised Telegram bot that manages registrations for events, with a lightweight admin panel to approve attendees, schedule announcements and send urgent notifications.
+A Telegram bot for event registrations with an admin toolset to review applications and send announcements.
 
-## Features
+## What it does
 
-- Attendee registration with automatic waitlisting when the configured capacity is reached.
-- Separate lecturer and project showcase registration categories with no capacity limits.
-- Admin panel protected by HTTP Basic authentication:
-  - Approve or reject attendees, lecturers and showcase presenters.
-  - Manually add priority attendees that should bypass the capacity limit.
-  - Schedule broadcast posts that are sent to every subscribed user.
-  - Send urgent notifications to all participants instantly.
-- Periodic scheduler that delivers planned posts automatically.
-- SQLite-backed persistence by default (configurable database URL) so data survives redeployments.
+- Collects attendee registrations and waitlists when capacity is full.
+- Supports additional registration categories (e.g., lecturers, showcases).
+- Lets admins approve/reject applicants and send scheduled or urgent broadcasts.
+- Persists data in a SQL database (SQLite by default).
+
+## Quick start
+
+```bash
+make docker-build 
+make docker-up
+```
+
+The bot will start polling. Admin commands are available to Telegram users listed in the config.
 
 ## Configuration
 
-Runtime configuration is stored in `config.yaml`. Update this file (or mount an alternative and point `CONFIG_FILE` to it) with your Telegram token, admin credentials and other limits before starting the bot.
+Default config lives in `config.yaml` (or point `CONFIG_FILE` to another file):
 
-You can still override any value via environment variables (`TELEGRAM_TOKEN`, `ADMIN_IDS`, etc.) for secrets that should not live in the YAML file.
+- `telegram_token`: bot token
+- `admin_usernames`: list of Telegram usernames allowed to use admin commands
+- `database_url`: SQLAlchemy database URL
 
-## Getting started
+You can override any value with environment variables like `TELEGRAM_TOKEN`, `ADMIN_USERNAMES`, and `DATABASE_URL`.
 
-1. Install [uv](https://github.com/astral-sh/uv) (already bundled in the Docker image). With uv available locally you can bootstrap the project with the included Makefile:
-
-   ```bash
-   make dev-install
-   ```
-
-   If uv is not available, install the dependencies listed in `requirements.txt` with `pip install -r requirements.txt` and the dev tools (`pytest`, `pytest-cov`, etc.) as needed for your workflow.
-
-2. Run the bot:
-
-   ```bash
-   make run
-   ```
-
-   The Telegram bot will start polling and the admin interface will be available at `http://localhost:8000/admin/posts`.
-
-3. Format, lint and test:
-
-   ```bash
-   make format
-   make lint
-   make test
-   ```
-
-To create a lockfile for reproducible builds run `uv lock` and adjust the Dockerfile to copy it into the image.
-
-## Docker workflow
-
-The repository includes a `Dockerfile` and `docker-compose.yml` that rely on uv for dependency management.
+## Docker
 
 ```bash
 docker compose up --build
 ```
 
-By default the compose file mounts `config.yaml` into the container. Provide your production configuration before deploying.
+Mount your `config.yaml` into the container or set env vars for production.
 
-## Deployment
+## Development
 
-- The project uses uv and a `config.yaml` file for configuration, making it easy to deploy with Docker or any container orchestrator.
-- Data lives in the configured SQL database. When redeploying, point `DATABASE_URL` to the same storage (for SQLite mount the volume, for Postgres/MySQL use the external service) to retain registrations and scheduled posts.
-- User-facing copy is resolved through JSON localization files stored under `app/locales/`. Set the `LOCALE` environment variable (or the corresponding YAML field) to switch languages at runtime and add new translation files alongside `en.json`.
-
-## Project structure
-
+```bash
+make format FIX=1
+make lint
+make docker-test
 ```
-app/
-  config.py          # Settings and environment loading
-  database.py        # SQLAlchemy engine & session helpers
-  main.py            # Entry point that runs the bot and the admin server
-  models.py          # ORM models
-  scheduler.py       # APScheduler integration
-  services/          # Business logic for registrations, posts and messaging
-  telegram/          # Telegram bot application & handlers
-  web/               # FastAPI admin interface
-config.yaml          # Runtime configuration loaded by default
-pyproject.toml       # Project metadata and dependency declarations
-Dockerfile           # uv-based container build
-Makefile             # Developer shortcuts (install, lint, test, run)
-docker-compose.yml   # Local container orchestration
-```
-
-## Admin credentials and security
-
-Set strong values for `ADMIN_USERNAME` and `ADMIN_PASSWORD`. For production deployments, run the admin panel behind HTTPS (for example via a reverse proxy or the hosting provider) to protect credentials in transit.
-
-## Development tips
-
-- Use SQLite locally (default) and Postgres/MySQL in production by changing `DATABASE_URL`.
-- Adjust the scheduler frequency with `SCHEDULER_INTERVAL_SECONDS` (defaults to 60 seconds).
-- To reset the database, delete the SQLite file (`anonchatbot.db`) or drop the tables in your SQL server.
