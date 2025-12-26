@@ -40,11 +40,11 @@ def config_path() -> Path | None:
     return None
 
 
-def parse_admin_ids(value: str | List[int] | None) -> List[int]:
+def parse_admin_usernames(value: str | List[str] | None) -> List[str]:
     if value is None:
         return []
     if isinstance(value, list):
-        return [int(v) for v in value]
+        return [str(v).lstrip("@").strip().lower() for v in value if str(v).strip()]
 
     cleaned = [v.strip() for v in value.split(",") if v.strip()]
-    return [int(v) for v in cleaned]
+    return [v.lstrip("@").lower() for v in cleaned]

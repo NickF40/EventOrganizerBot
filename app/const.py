@@ -9,4 +9,3 @@ CONFIG_SEARCH_PATHS: tuple[Path, ...] = (
     Path("/config"),
     Path("/app"),
 )
-
