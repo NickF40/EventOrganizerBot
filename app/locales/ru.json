@@ -1,0 +1,317 @@
+{
+  "buttons": {
+    "attend": "Принять участие",
+    "lecturer": "Регистрация как спикер",
+    "showcase": "Выставка проектов"
+  },
+  "start": {
+    "returning": "С возвращением, {name}!\n\nМы уже зарегистрировали вас:\n{summary}\n\nИспользуйте /status для проверки статуса или выберите другой вариант ниже.",
+    "new": "Привет, {name}!\n\nДобро пожаловать в бот {event_name}. Выберите формат участия.",
+    "summary_item": "• {category}: {status}"
+  },
+  "registration": {
+    "status": {
+      "pending": "На рассмотрении",
+      "approved": "Одобрено",
+      "approved_suffix": " (одобрено)",
+      "waitlisted": "Лист ожидания",
+      "waitlisted_suffix": " (ожидание)",
+      "rejected": "Отклонено"
+    },
+    "category": {
+      "attendee": "Участник",
+      "lecturer": "Спикер",
+      "showcase": "Выставка проектов"
+    },
+    "callback": {
+      "unknown_option": "Неизвестный вариант регистрации. Попробуйте снова.",
+      "waitlisted": "Вы в листе ожидания. Мы сообщим, если появится место!",
+      "attendee": "Спасибо! Заявка на участие получена. Организатор скоро подтвердит.",
+      "lecturer": "Спасибо! Заявка на спикера получена. Мы свяжемся с вами.",
+      "showcase": "Отлично! Заявка на выставку проекта получена.",
+      "duplicate": "Мы уже получили вашу заявку. Мы будем держать вас в курсе!"
+    }
+  },
+  "status": {
+    "none_found": "Мы пока не нашли вашу заявку. Используйте /start для регистрации!",
+    "line": "{category}: {status}"
+  },
+  "help": {
+    "text": "Используйте /start, чтобы зарегистрироваться, или /status, чтобы проверить статус."
+  },
+  "admin_notifications": {
+    "approved": "Отличные новости! Ваша заявка одобрена.",
+    "approved_priority": "Отличные новости! Ваша заявка одобрена.",
+    "rejected": "К сожалению, мы не можем подтвердить ваше участие в этот раз.",
+    "waitlisted": "Вы в листе ожидания. Мы сообщим об изменениях."
+  },
+  "bot": {
+    "menu": {
+      "application": "Заявка",
+      "cancel": "Отмена заявки",
+      "feedback": "Отзыв",
+      "schedule": "Афиша",
+      "status": "Статус",
+      "notifications": "Нотификации",
+      "home": "На главную"
+    },
+    "notifications": {
+      "status": {
+        "enabled": "Включены",
+        "disabled": "Выключены"
+      },
+      "message": "[{status}] Бот будет присылать только важные уведомления: о включении в участники, за неделю до мероприятия, и во время мероприятий во время начала больших блоков. Рекомендуем оставить их включенными. Отключение: /notifications_disable, включение: /notifications_enable."
+    },
+    "status": {
+      "none": "Нет заявки",
+      "processing": "Заявка в обработке",
+      "attendee": "Участник",
+      "waitlist": "Лист ожидания",
+      "attendee_notification": "Статус обновлен: участник. Будем рады видеть вас на мероприятии. Подробнее можно узнать в Афише."
+    },
+    "templates": {
+      "missing_welcome": "Нет шаблона сообщения: welcome_message",
+      "missing_schedule": "Нет шаблона сообщения: schedule_message"
+    },
+    "messages": {
+      "main_menu": "Главное меню",
+      "event_started_broadcast": "Мероприятие началось! Следите за обновлениями в боте."
+    },
+    "application": {
+      "already_created": "Заявка уже создана.",
+      "ask_full_name": "Как вас зовут? (Имя Фамилия)",
+      "ask_job": "Кем и где вы работаете? (позиция, компания)",
+      "ask_career": "Какой путь... (1)... (2)... В ответ напишите цифру",
+      "confirmation": "Спасибо за вашу заявку! Ожидайте новостей по мероприятию.",
+      "cancelled": "Заявка отменена."
+    },
+    "feedback": {
+      "prompt": "Вы можете оставить отзыв на последнее мероприятие, в котором принимали участие. Отправьте одно сообщение в свободной форме. Мы будем рады развернутому отзыву по ссылке: <ссылка>",
+      "confirmation": "Спасибо за ваш отзыв!"
+    },
+    "admin": {
+      "errors": {
+        "expected_csv": "Ожидается CSV-файл.",
+        "unknown_or_forbidden": "Неизвестная команда или недостаточно прав",
+        "unknown": "Неизвестная команда",
+        "nickname_required": "Нужен nickname.",
+        "user_not_found": "Пользователь не найден.",
+        "user_id_required": "Нужен user_id.",
+        "user_id_invalid": "Неверный user_id.",
+        "event_id_required": "Нужен id."
+      },
+      "templates": {
+        "saved_welcome": "welcome_message сохранено.",
+        "saved_schedule": "schedule_message сохранено.",
+        "awaiting_welcome": "Ожидаю следующее сообщение для welcome_message.",
+        "awaiting_schedule": "Ожидаю следующее сообщение для schedule_message."
+      },
+      "broadcast": {
+        "awaiting_message": "Ожидаю сообщение для рассылки",
+        "awaiting_all": "Ожидаю следующее сообщение для рассылки всем.",
+        "awaiting_attendees": "Ожидаю следующее сообщение для рассылки участникам."
+      },
+      "database": {
+        "updated": "База данных обновлена.",
+        "awaiting_upload": "Ожидаю CSV-файл с пользователями."
+      },
+      "commands_list": "Команды:\n{commands}",
+      "applications": {
+        "summary": "заявки: {applications} | участники: {attendees}"
+      },
+      "status": {
+        "updated": "Статус обновлен."
+      },
+      "event_started": "event_started=true",
+      "event_already_started": "Мероприятие уже запущено.",
+      "event_cancelled": "event_started=false",
+      "event_id_updated": "event_id обновлен."
+    }
+  },
+  "admin": {
+    "title": "Админка",
+    "nav": {
+      "brand": "Админка мероприятия",
+      "dashboard": "Дашборд",
+      "posts": "Запланированные посты",
+      "registrations": "Регистрации",
+      "pending": "На рассмотрении",
+      "approved": "Одобрены",
+      "priority": "Приоритет",
+      "waitlisted": "Лист ожидания",
+      "declined": "Отклонены",
+      "urgent": "Срочное сообщение"
+    },
+    "dashboard": {
+      "title": "Обзор мероприятия",
+      "subtitle": "Сводка по регистрациям, лимиту и рассылкам.",
+      "timezone_label": "Часовой пояс: {timezone}",
+      "timezone_warning": "Изменения сохраняются только в памяти.",
+      "pending_review": "На рассмотрении",
+      "current_limit": "Текущий лимит",
+      "no_limit": "Без лимита",
+      "approved": "Одобрены",
+      "priority_approvals": "Приоритетные одобрения",
+      "waitlisted": "Лист ожидания",
+      "declined": "Отклонены",
+      "summary_title": "Сводка",
+      "attendee_limit_label": "Лимит участников:",
+      "no_limit_set": "Лимит не задан",
+      "waiting_to_process": "Ожидают рассмотрения:",
+      "by_category": "Регистрации по категориям",
+      "upcoming_posts": "Ближайшие посты",
+      "upcoming_help": "Время показано в {timezone}.",
+      "no_upcoming_posts": "Нет запланированных постов."
+    },
+    "posts": {
+      "title": "Запланированные посты для {event_name}",
+      "flash": {
+        "scheduled": "Запланирован новый пост",
+        "cancelled": "Пост отменен"
+      },
+      "timezone": {
+        "title": "Настройки часового пояса",
+        "help": "Все время отображается как {timezone}.",
+        "warning": "Файл конфигурации не найден – выбор сбросится после перезапуска.",
+        "label": "Часовой пояс",
+        "save": "Сохранить часовой пояс"
+      },
+      "new": {
+        "title": "Запланировать объявление",
+        "help": "Укажите локальное время отправки; мы конвертируем в UTC.",
+        "fields": {
+          "title": "Заголовок",
+          "content": "Содержание",
+          "send_at": "Отправить в ({timezone})"
+        },
+        "submit": "Запланировать пост"
+      },
+      "upcoming": {
+        "title": "Ближайшие посты",
+        "help": "Локальное время в {timezone}.",
+        "empty": "Постов пока нет."
+      },
+      "sent": {
+        "title": "Недавно отправленные",
+        "help": "Время отображается в {timezone}.",
+        "empty": "Постов пока нет.",
+        "empty_date": "—"
+      },
+      "table": {
+        "title": "Заголовок",
+        "scheduled": "Запланирован",
+        "send_at": "Отправить в",
+        "sent_at": "Отправлен"
+      }
+    },
+    "registrations": {
+      "pending": {
+        "title": "Ожидают рассмотрения",
+        "table_title": "Ожидают рассмотрения",
+        "empty": "Нет заявок на рассмотрение."
+      },
+      "approved": {
+        "title": "Одобренные регистрации",
+        "table_title": "Одобренные участники",
+        "empty": "Нет одобренных регистраций."
+      },
+      "priority": {
+        "title": "Приоритетные одобрения",
+        "table_title": "Одобрены с приоритетом",
+        "empty": "Нет приоритетных одобрений."
+      },
+      "waitlisted": {
+        "title": "Лист ожидания",
+        "table_title": "В листе ожидания",
+        "empty": "Нет заявок в листе ожидания."
+      },
+      "declined": {
+        "title": "Отклоненные регистрации",
+        "table_title": "Отклоненные заявки",
+        "empty": "Нет отклоненных регистраций."
+      },
+      "capacity": {
+        "title": "Лимит мероприятия",
+        "approved": "Одобрено участников:",
+        "no_limit": "(без лимита)",
+        "pending": "Ожидают рассмотрения:",
+        "view": "просмотр",
+        "limit_label": "Лимит участников",
+        "limit_placeholder": "Оставьте пустым для снятия лимита",
+        "limit_help": "Оставьте пустым, чтобы снять лимит.",
+        "save": "Сохранить лимит"
+      },
+      "manual": {
+        "title": "Добавить участника вручную",
+        "display_name": "Имя",
+        "contact": "Контакт",
+        "contact_placeholder": "Email, телефон и т.д.",
+        "category": "Категория",
+        "notes": "Заметки",
+        "priority": "Приоритетный участник (игнорировать лимит)",
+        "submit": "Добавить регистрацию"
+      },
+      "table": {
+        "name": "Имя",
+        "category": "Категория",
+        "status": "Статус",
+        "priority": "Приоритет",
+        "notes": "Заметки",
+        "actions": "Действия"
+      },
+      "flash": {
+        "deleted": "Регистрация удалена",
+        "limit_removed": "Лимит снят",
+        "limit_updated": "Лимит обновлен"
+      }
+    },
+    "urgent": {
+      "title": "Срочное уведомление",
+      "message_label": "Сообщение для рассылки всем",
+      "send": "Отправить сейчас",
+      "delivered": "Доставлено {delivered} пользователям."
+    },
+    "actions": {
+      "approve": "Одобрить",
+      "approve_priority": "Одобрить с приоритетом",
+      "waitlist": "В лист ожидания",
+      "reject": "Отклонить",
+      "mark_priority": "Пометить как приоритет",
+      "reset_pending": "Вернуть в ожидание",
+      "mark_regular": "Снять приоритет",
+      "delete": "Удалить"
+    },
+    "labels": {
+      "yes": "Да",
+      "no": "Нет"
+    },
+    "categories": {
+      "attendee": "Участник",
+      "lecturer": "Спикер",
+      "showcase": "Выставка проектов"
+    },
+    "statuses": {
+      "pending": "На рассмотрении",
+      "approved": "Одобрено",
+      "waitlisted": "Лист ожидания",
+      "rejected": "Отклонено"
+    },
+    "timezone": {
+      "updated": "Часовой пояс обновлен на {timezone}{suffix}",
+      "not_saved_suffix": " (не сохранено на диск)"
+    },
+    "errors": {
+      "invalid_date_format": "Неверный формат даты",
+      "timezone_required": "Нужен часовой пояс",
+      "invalid_timezone": "Неверный часовой пояс",
+      "post_not_found": "Пост не найден",
+      "post_already_sent": "Нельзя отменить уже отправленный пост",
+      "registration_not_found": "Регистрация не найдена",
+      "unknown_status": "Неизвестный статус",
+      "attendee_limit_reached": "Достигнут лимит участников",
+      "unknown_category": "Неизвестная категория",
+      "limit_integer": "Лимит должен быть целым числом",
+      "limit_non_negative": "Лимит не может быть отрицательным"
+    }
+  }
+}

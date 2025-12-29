@@ -50,7 +50,11 @@ def get_pending_posts(session: Session, *, now: datetime | None = None) -> list[
 
 
 async def broadcast_post(session: Session, bot: Bot, post: ScheduledPost) -> None:
-    users = session.execute(select(User).where(User.is_subscribed.is_(True))).scalars().all()
+    users = (
+        session.execute(select(User).where(User.notifications_enabled.is_(True)))
+        .scalars()
+        .all()
+    )
     logger.info(
         "Broadcasting post %s to %s subscribed users", post.id, len(users)
     )
@@ -60,7 +64,7 @@ async def broadcast_post(session: Session, bot: Bot, post: ScheduledPost) -> Non
         try:
             await bot.send_message(chat_id=user.telegram_id, text=f"{post.title}\n\n{post.content}")
         except TelegramError:
-            user.is_subscribed = False
+            user.notifications_enabled = False
             logger.warning(
                 "Failed to deliver post %s to user %s; unsubscribing.",
                 post.id,

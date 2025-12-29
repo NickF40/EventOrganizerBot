@@ -603,7 +603,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
 
         session.flush()
 
-        if registration.user.telegram_id:
+        if registration.user.telegram_id and registration.user.notifications_enabled:
             message = None
             localizer = current_localizer()
             if status_enum == RegistrationStatus.APPROVED:

@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     admin_usernames: List[str] = Field(default_factory=list, env="ADMIN_USERNAMES")
     locale: str = Field(default="en", env="LOCALE")
 
+    enable_admin_web: bool = Field(default=False, env="ENABLE_ADMIN_WEB")
+    admin_web_host: str = Field(default="0.0.0.0", env="ADMIN_WEB_HOST")
+    admin_web_port: int = Field(default=8000, env="ADMIN_WEB_PORT")
+    basic_auth_username: str = Field(default="admin", env="ADMIN_BASIC_AUTH_USERNAME")
+    basic_auth_password: str = Field(default="admin", env="ADMIN_BASIC_AUTH_PASSWORD")
+
     database_url: str = Field(
         default="sqlite:///./anonchatbot.db",
         env="DATABASE_URL",
