@@ -1,7 +1,6 @@
-from telegram import User as TGUser
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from telegram import User as TGUser
 
 from app.models import User
 

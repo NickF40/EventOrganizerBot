@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -7,7 +7,6 @@ from telegram import Bot
 from telegram.error import TelegramError
 
 from app.models import ScheduledPost, User
-
 
 logger = logging.getLogger(__name__)
 
@@ -50,25 +49,23 @@ def get_pending_posts(session: Session, *, now: datetime | None = None) -> list[
 
 
 async def broadcast_post(session: Session, bot: Bot, post: ScheduledPost) -> None:
-    users = session.execute(select(User).where(User.is_subscribed.is_(True))).scalars().all()
-    logger.info(
-        "Broadcasting post %s to %s subscribed users", post.id, len(users)
+    users = (
+        session.execute(select(User).where(User.notifications_enabled.is_(True))).scalars().all()
     )
+    logger.info("Broadcasting post %s to %s subscribed users", post.id, len(users))
     for user in users:
         if user.telegram_id is None:
             continue
         try:
             await bot.send_message(chat_id=user.telegram_id, text=f"{post.title}\n\n{post.content}")
         except TelegramError:
-            user.is_subscribed = False
+            user.notifications_enabled = False
             logger.warning(
                 "Failed to deliver post %s to user %s; unsubscribing.",
                 post.id,
                 user.id,
             )
         else:
-            logger.debug(
-                "Delivered post %s to user %s", post.id, user.id
-            )
+            logger.debug("Delivered post %s to user %s", post.id, user.id)
     post.sent_at = datetime.now(timezone.utc)
     logger.info("Post %s marked as sent at %s", post.id, post.sent_at.isoformat())

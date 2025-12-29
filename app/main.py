@@ -2,10 +2,13 @@ import asyncio
 import logging
 import os
 
+from uvicorn import Config, Server
+
 from app.config import get_settings
 from app.database import ensure_schema
 from app.telebot.bot import build_application
 from app.utils import config_path
+from app.web.admin import create_app
 
 
 def configure_logging() -> None:
@@ -27,6 +30,23 @@ async def run() -> None:
     ensure_schema()
 
     application = build_application()
+    admin_server: Server | None = None
+    admin_task: asyncio.Task | None = None
+    if settings.enable_admin_web:
+        admin_app = create_app(settings, bot=application.bot)
+        admin_server = Server(
+            Config(
+                admin_app,
+                host=settings.admin_web_host,
+                port=settings.admin_web_port,
+                loop="asyncio",
+                log_level="info",
+            )
+        )
+        admin_task = asyncio.create_task(admin_server.serve())
+        logger.info(
+            "Admin web enabled on http://%s:%s", settings.admin_web_host, settings.admin_web_port
+        )
     logger.info("Telegram application initialized; starting polling.")
     await application.initialize()
     if application.post_init:
@@ -37,6 +57,9 @@ async def run() -> None:
     try:
         await asyncio.Event().wait()
     finally:
+        if admin_server and admin_task:
+            admin_server.should_exit = True
+            await admin_task
         if application.updater.running:
             await application.updater.stop()
         if application.running:

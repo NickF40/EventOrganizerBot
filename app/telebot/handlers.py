@@ -455,7 +455,7 @@ async def send_attendee_notification(bot, telegram_id: int) -> None:
     await asyncio.sleep(30)
     with session_scope() as session:
         user = session.scalar(select(User).where(User.telegram_id == telegram_id))
-        if not user or user.status != UserStatus.ATTENDEE:
+        if not user or user.status != UserStatus.ATTENDEE or not user.notifications_enabled:
             return
     localizer = get_bot_localizer()
     await bot.send_message(
@@ -550,7 +550,11 @@ async def broadcast_payload(session, context, message, waiting_for: AdminStateTy
 
 async def broadcast_text(bot, text: str) -> None:
     with session_scope() as session:
-        users = session.execute(select(User)).scalars().all()
+        users = (
+            session.execute(select(User).where(User.notifications_enabled.is_(True)))
+            .scalars()
+            .all()
+        )
     for user in users:
         if not user.telegram_id:
             continue
@@ -573,6 +577,9 @@ async def process_upload_database(
         clear_admin_state(session, admin_id)
         for row in reader:
             if not row.get("user_id"):
+                continue
+            username = row.get("username") or ""
+            if is_admin(username):
                 continue
             telegram_id = int(row["user_id"])
             user = session.scalar(select(User).where(User.telegram_id == telegram_id))
@@ -863,6 +870,13 @@ async def event_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     with session_scope() as session:
         state = get_or_create_event_state(session)
+        if state.event_started:
+            localizer = get_bot_localizer()
+            if update.effective_chat:
+                await update.effective_chat.send_message(
+                    localizer.get("bot.admin.event_already_started")
+                )
+            return
         state.event_started = True
     localizer = get_bot_localizer()
     if update.effective_chat:
