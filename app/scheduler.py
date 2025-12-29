@@ -7,7 +7,6 @@ from app.config import Settings
 from app.database import session_scope
 from app.services.posts import broadcast_post, get_pending_posts
 
-
 logger = logging.getLogger(__name__)
 
 

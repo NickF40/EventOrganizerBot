@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 

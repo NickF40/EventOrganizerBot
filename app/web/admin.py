@@ -1,6 +1,7 @@
 import asyncio
 import secrets
 from datetime import datetime, timezone
+from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
@@ -29,7 +30,6 @@ from app.services.registrations import (
     update_registration_status,
 )
 
-
 templates = Jinja2Templates(directory="templates")
 security = HTTPBasic()
 
@@ -47,7 +47,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
 
     def admin_auth(
         request: Request,
-        credentials: HTTPBasicCredentials = Depends(security),
+        credentials: Annotated[HTTPBasicCredentials, Depends(security)],
     ) -> str:
         correct_username = secrets.compare_digest(
             credentials.username, settings.basic_auth_username
@@ -81,22 +81,21 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         return dt.astimezone(settings.tzinfo).strftime("%Y-%m-%d %H:%M")
 
     @app.get("/")
-    async def index(_: str = Depends(admin_auth)):
+    async def index(_: Annotated[str, Depends(admin_auth)]):
         return RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
 
     @app.get("/admin")
     async def dashboard(
-        request: Request, _: str = Depends(admin_auth), session: Session = Depends(get_session)
+        request: Request,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         event = get_or_create_default_event(session, settings)
-        status_rows = (
-            session.execute(
-                select(Registration.status, func.count(Registration.id))
-                .where(Registration.event_id == event.id)
-                .group_by(Registration.status)
-            )
-            .all()
-        )
+        status_rows = session.execute(
+            select(Registration.status, func.count(Registration.id))
+            .where(Registration.event_id == event.id)
+            .group_by(Registration.status)
+        ).all()
         status_counts = {status: count for status, count in status_rows}
         priority_count = (
             session.scalar(
@@ -107,14 +106,11 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             )
             or 0
         )
-        category_rows = (
-            session.execute(
-                select(Registration.category, func.count(Registration.id))
-                .where(Registration.event_id == event.id)
-                .group_by(Registration.category)
-            )
-            .all()
-        )
+        category_rows = session.execute(
+            select(Registration.category, func.count(Registration.id))
+            .where(Registration.event_id == event.id)
+            .group_by(Registration.category)
+        ).all()
         category_counts = {category.value: count for category, count in category_rows}
         upcoming = (
             session.execute(
@@ -162,7 +158,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
 
     @app.get("/admin/posts")
     async def posts(
-        request: Request, _: str = Depends(admin_auth), session: Session = Depends(get_session)
+        request: Request,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         upcoming = (
             session.execute(
@@ -217,11 +215,11 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.post("/admin/posts")
     async def create_post(
         request: Request,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
         title: str = Form(...),
         content: str = Form(...),
         send_at: str = Form(...),
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
     ):
         localizer = current_localizer()
         try:
@@ -240,15 +238,13 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             content=content,
             send_at=send_at_dt.astimezone(timezone.utc),
         )
-        return redirect_with_message(
-            "/admin/posts", localizer.get("admin.posts.flash.scheduled")
-        )
+        return redirect_with_message("/admin/posts", localizer.get("admin.posts.flash.scheduled"))
 
     @app.post("/admin/settings/timezone")
     async def update_timezone(
+        _: Annotated[str, Depends(admin_auth)],
         timezone_value: str = Form(...),
         return_to: str | None = Form(None),
-        _: str = Depends(admin_auth),
     ):
         localizer = current_localizer()
         normalized = timezone_value.strip()
@@ -280,8 +276,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     async def cancel_post(
         request: Request,
         post_id: int,
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         localizer = current_localizer()
         post = session.get(ScheduledPost, post_id)
@@ -297,9 +293,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
             )
         session.delete(post)
         session.flush()
-        return redirect_with_message(
-            "/admin/posts", localizer.get("admin.posts.flash.cancelled")
-        )
+        return redirect_with_message("/admin/posts", localizer.get("admin.posts.flash.cancelled"))
 
     def make_action(
         label_key: str,
@@ -434,8 +428,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.get("/admin/registrations")
     async def registrations_pending(
         request: Request,
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
@@ -462,8 +456,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.get("/admin/registrations/approved")
     async def registrations_approved(
         request: Request,
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
@@ -485,8 +479,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.get("/admin/registrations/approved-priority")
     async def registrations_approved_priority(
         request: Request,
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
@@ -508,8 +502,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.get("/admin/registrations/waitlisted")
     async def registrations_waitlisted(
         request: Request,
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
@@ -534,8 +528,8 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.get("/admin/registrations/declined")
     async def registrations_declined(
         request: Request,
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
     ):
         localizer = current_localizer()
         event = get_or_create_default_event(session, settings)
@@ -561,11 +555,11 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     async def update_status(
         request: Request,
         registration_id: int,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
         status_value: str = Form(...),
         priority_value: str | None = Form(None),
         return_to: str | None = Form(None),
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
     ):
         localizer = current_localizer()
         registration = session.get(Registration, registration_id)
@@ -595,15 +589,15 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
                 status=status_enum,
                 is_priority=priority_flag,
             )
-        except CapacityError:
+        except CapacityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=localizer.get("admin.errors.attendee_limit_reached"),
-            )
+            ) from exc
 
         session.flush()
 
-        if registration.user.telegram_id:
+        if registration.user.telegram_id and registration.user.notifications_enabled:
             message = None
             localizer = current_localizer()
             if status_enum == RegistrationStatus.APPROVED:
@@ -629,9 +623,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     async def delete_registration(
         request: Request,
         registration_id: int,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
         return_to: str | None = Form(None),
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
     ):
         localizer = current_localizer()
         registration = session.get(Registration, registration_id)
@@ -650,14 +644,14 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.post("/admin/registrations/manual")
     async def add_manual_registration(
         request: Request,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
         display_name: str = Form(...),
         contact: str | None = Form(None),
         category_value: str = Form(...),
         notes: str | None = Form(None),
         priority: bool = Form(False),
         return_to: str | None = Form(None),
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
     ):
         localizer = current_localizer()
         try:
@@ -682,7 +676,7 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
         return RedirectResponse(redirect_path, status_code=status.HTTP_303_SEE_OTHER)
 
     @app.get("/admin/urgent")
-    async def urgent(request: Request, _: str = Depends(admin_auth)):
+    async def urgent(request: Request, _: Annotated[str, Depends(admin_auth)]):
         return templates.TemplateResponse(
             "urgent.html",
             template_context(request),
@@ -691,9 +685,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.post("/admin/urgent")
     async def send_urgent(
         request: Request,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
         message: str = Form(...),
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
     ):
         delivered = await broadcast_message(session, request.app.state.bot, message)
         return templates.TemplateResponse(
@@ -704,9 +698,9 @@ def create_app(settings: Settings, *, bot) -> FastAPI:
     @app.post("/admin/event/limit")
     async def update_limit(
         request: Request,
+        _: Annotated[str, Depends(admin_auth)],
+        session: Annotated[Session, Depends(get_session)],
         limit: str = Form(...),
-        _: str = Depends(admin_auth),
-        session: Session = Depends(get_session),
     ):
         event = get_or_create_default_event(session, settings)
         localizer = current_localizer()

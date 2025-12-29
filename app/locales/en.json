@@ -60,7 +60,7 @@
         "enabled": "Включены",
         "disabled": "Выключены"
       },
-      "message": "[{status}] Бот будет присылать важные уведомления, когда админы их отправят (в т.ч. можно заранее запланировать в Telegram). Рекомендуем оставить включенными. Отключение: /notifications_disable, включение: /notifications_enable."
+      "message": "[{status}] Бот будет присылать только важные уведомления: о включении в участники, за неделю до мероприятия, и во время мероприятий во время начала больших блоков. Рекомендуем оставить их включенными. Отключение: /notifications_disable, включение: /notifications_enable."
     },
     "status": {
       "none": "Нет заявки",
@@ -123,6 +123,7 @@
         "updated": "Статус обновлен."
       },
       "event_started": "event_started=true",
+      "event_already_started": "event already started",
       "event_cancelled": "event_started=false",
       "event_id_updated": "event_id обновлен."
     }
