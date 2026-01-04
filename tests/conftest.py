@@ -27,6 +27,11 @@ def _install_telegram_stubs() -> None:
         def __init__(self, buttons):
             self.inline_keyboard = buttons
 
+    class _ReplyKeyboardMarkup:
+        def __init__(self, keyboard, resize_keyboard: bool = False):
+            self.keyboard = keyboard
+            self.resize_keyboard = resize_keyboard
+
     class _Update(_TelegramObject):
         pass
 
@@ -35,6 +40,7 @@ def _install_telegram_stubs() -> None:
     telegram.Update = _Update
     telegram.InlineKeyboardButton = _InlineKeyboardButton
     telegram.InlineKeyboardMarkup = _InlineKeyboardMarkup
+    telegram.ReplyKeyboardMarkup = _ReplyKeyboardMarkup
 
     error_module = types.ModuleType("telegram.error")
     telegram.error = error_module
@@ -92,10 +98,38 @@ def _install_telegram_stubs() -> None:
         def __init__(self, *args, **kwargs) -> None:
             return None
 
+    class _Filter:
+        def __init__(self, name: str):
+            self.name = name
+
+        def __and__(self, other: "_Filter") -> "_Filter":
+            return _Filter(f"({self.name}&{other.name})")
+
+        def __invert__(self) -> "_Filter":
+            return _Filter(f"~{self.name}")
+
+    class _FiltersModule:
+        ALL = _Filter("ALL")
+        COMMAND = _Filter("COMMAND")
+        TEXT = _Filter("TEXT")
+
+        @staticmethod
+        def Regex(pattern: str) -> _Filter:  # noqa: N802 - mimic telegram API
+            return _Filter(f"Regex({pattern})")
+
+    class _ConversationHandler:
+        END = -1
+
+        def __init__(self, *args, **kwargs) -> None:
+            return None
+
     ext_module.Application = _DummyApplication
     ext_module.ApplicationBuilder = _DummyBuilder
     ext_module.CallbackQueryHandler = _SimpleHandler
     ext_module.CommandHandler = _SimpleHandler
+    ext_module.ConversationHandler = _ConversationHandler
+    ext_module.MessageHandler = _SimpleHandler
+    ext_module.filters = _FiltersModule()
     ext_module.ContextTypes = types.SimpleNamespace(DEFAULT_TYPE=object())
 
     telegram.ext = ext_module
@@ -148,5 +182,27 @@ def _install_apscheduler_stubs() -> None:
     _ensure_module("apscheduler.schedulers.asyncio", asyncio_module)
 
 
+def _install_python_multipart_stub() -> None:
+    if importlib.util.find_spec("python_multipart") is not None:
+        return
+
+    python_multipart = types.ModuleType("python_multipart")
+    python_multipart.__version__ = "0.0.13"
+
+    multipart = types.ModuleType("multipart")
+    multipart.__version__ = "0.0.13"
+    multipart_module = types.ModuleType("multipart.multipart")
+
+    def parse_options_header(value):  # pragma: no cover - compatibility shim
+        return value
+
+    multipart_module.parse_options_header = parse_options_header
+
+    _ensure_module("python_multipart", python_multipart)
+    _ensure_module("multipart", multipart)
+    _ensure_module("multipart.multipart", multipart_module)
+
+
 _install_telegram_stubs()
 _install_apscheduler_stubs()
+_install_python_multipart_stub()

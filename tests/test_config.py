@@ -2,6 +2,7 @@ import pytest
 
 from app.config import Settings, get_settings
 from app import utils
+import yaml
 
 
 def test_parse_admin_usernames_from_string():
@@ -65,3 +66,20 @@ def test_settings_respects_admin_usernames_env(monkeypatch):
     monkeypatch.setenv("ADMIN_USERNAMES", '["first", "Second"]')
     settings = Settings(telegram_token="token")
     assert settings.admin_usernames == ["first", "second"]
+
+
+def test_settings_timezone_validation():
+    with pytest.raises(ValueError):
+        Settings(telegram_token="token", timezone="Not/AZone")
+
+
+def test_set_timezone_persists_when_config_exists(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("telegram_token: test-token\n")
+    monkeypatch.setenv("CONFIG_FILE", str(config_path))
+
+    settings = Settings(telegram_token="token")
+    assert settings.set_timezone("UTC") is True
+
+    persisted = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert persisted["timezone"] == "UTC"
