@@ -1,6 +1,7 @@
-from functools import lru_cache
 import json
+from functools import lru_cache
 from typing import Any, List
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 from pydantic import BaseSettings, Field, validator
@@ -13,11 +14,16 @@ class Settings(BaseSettings):
     admin_usernames: List[str] = Field(default_factory=list, env="ADMIN_USERNAMES")
     locale: str = Field(default="en", env="LOCALE")
 
+    event_name: str = Field(default="Event", env="EVENT_NAME")
+    attendee_limit: int | None = Field(default=None, env="ATTENDEE_LIMIT")
+    timezone: str = Field(default="UTC", env="TIMEZONE")
+
     enable_admin_web: bool = Field(default=False, env="ENABLE_ADMIN_WEB")
     admin_web_host: str = Field(default="0.0.0.0", env="ADMIN_WEB_HOST")
     admin_web_port: int = Field(default=8000, env="ADMIN_WEB_PORT")
     basic_auth_username: str = Field(default="admin", env="ADMIN_BASIC_AUTH_USERNAME")
     basic_auth_password: str = Field(default="admin", env="ADMIN_BASIC_AUTH_PASSWORD")
+    scheduler_interval_seconds: int = Field(default=60, env="SCHEDULER_INTERVAL_SECONDS")
 
     database_url: str = Field(
         default="sqlite:///./anonchatbot.db",
@@ -57,6 +63,14 @@ class Settings(BaseSettings):
     def validate_admin_usernames(cls, value: str | List[str] | None) -> List[str]:  # type: ignore[override]
         return parse_admin_usernames(value)
 
+    @validator("timezone")
+    def validate_timezone(cls, value: str) -> str:  # type: ignore[override]
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"Unknown timezone: {value}") from exc
+        return value
+
     @classmethod
     def _parse_admin_usernames(cls, value: str | List[str] | None) -> List[str]:
         return parse_admin_usernames(value)
@@ -64,6 +78,29 @@ class Settings(BaseSettings):
     @property
     def admin_username_set(self) -> set[str]:
         return {name.lower() for name in self.admin_usernames}
+
+    @property
+    def tzinfo(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone)
+
+    @property
+    def can_persist_timezone(self) -> bool:
+        return config_path() is not None
+
+    def set_timezone(self, timezone_value: str) -> bool:
+        try:
+            ZoneInfo(timezone_value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"Unknown timezone: {timezone_value}") from exc
+
+        object.__setattr__(self, "timezone", timezone_value)
+        path = config_path()
+        if not path:
+            return False
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data["timezone"] = timezone_value
+        path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+        return True
 
     @classmethod
     def load_from_yaml(cls) -> dict[str, Any]:
