@@ -313,25 +313,5 @@
       "limit_integer": "Лимит должен быть целым числом",
       "limit_non_negative": "Лимит не может быть отрицательным"
     }
-  },
-  "bot": {
-    "status": {
-      "none": "Нет заявки",
-      "processing": "Заявка в обработке",
-      "attendee": "Участник",
-      "waitlist": "Лист ожидания"
-    },
-    "notifications": {
-      "status": {
-        "enabled": "Включены",
-        "disabled": "Выключены"
-      },
-      "message": "[{status}] Уведомления"
-    },
-    "admin": {
-      "errors": {
-        "unknown_or_forbidden": "Unknown command or has no permission"
-      }
-    }
   }
 }
