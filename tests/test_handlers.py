@@ -2,19 +2,29 @@ from app.models import UserStatus
 from app.telebot import handlers
 
 
-def test_status_text_mapping():
+def test_status_text_mapping(monkeypatch):
+    monkeypatch.setenv("LOCALE", "ru")
+    handlers.get_settings.cache_clear()
+
     assert handlers.status_text(UserStatus.NONE) == "Нет заявки"
     assert handlers.status_text(UserStatus.PROCESSING) == "Заявка в обработке"
     assert handlers.status_text(UserStatus.ATTENDEE) == "Участник"
     assert handlers.status_text(UserStatus.WAITLIST) == "Лист ожидания"
 
+    handlers.get_settings.cache_clear()
 
-def test_notifications_text_variants():
+
+def test_notifications_text_variants(monkeypatch):
+    monkeypatch.setenv("LOCALE", "ru")
+    handlers.get_settings.cache_clear()
+
     enabled = handlers.notifications_text(True)
     disabled = handlers.notifications_text(False)
 
     assert enabled.startswith("[Включены]")
     assert disabled.startswith("[Выключены]")
+
+    handlers.get_settings.cache_clear()
 
 
 def test_build_main_keyboard_dynamic_button():

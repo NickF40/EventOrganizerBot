@@ -1,6 +1,4 @@
-from app import config
-from app import const
-from app import utils
+from app import config, const, utils
 
 
 def test_resolve_from_directory_prefers_first_filename(tmp_path):
