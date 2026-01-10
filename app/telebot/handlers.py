@@ -28,7 +28,6 @@ from app.models import (
     UserStatus,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +81,9 @@ def home_keyboard() -> ReplyKeyboardMarkup:
 
 def notifications_text(enabled: bool) -> str:
     localizer = get_bot_localizer()
-    status_key = "bot.notifications.status.enabled" if enabled else "bot.notifications.status.disabled"
+    status_key = (
+        "bot.notifications.status.enabled" if enabled else "bot.notifications.status.disabled"
+    )
     status = localizer.get(status_key)
     return localizer.format("bot.notifications.message", status=status)
 
@@ -173,15 +174,18 @@ async def send_welcome_message(update: Update, template: MessageTemplate | None)
         return
     if not template:
         localizer = get_bot_localizer()
-        await update.effective_chat.send_message(
-            localizer.get("bot.templates.missing_welcome")
-        )
+        await update.effective_chat.send_message(localizer.get("bot.templates.missing_welcome"))
         return
-    await update.effective_chat.bot.copy_message(
-        chat_id=update.effective_chat.id,
-        from_chat_id=template.admin_chat_id,
-        message_id=template.message_id,
-    )
+    try:
+        await update.effective_chat.bot.copy_message(
+            chat_id=update.effective_chat.id,
+            from_chat_id=template.admin_chat_id,
+            message_id=template.message_id,
+        )
+    except Exception:
+        logger.exception("Failed to send welcome template message")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(localizer.get("bot.templates.missing_welcome"))
 
 
 async def send_schedule_message(update: Update, template: MessageTemplate | None) -> None:
@@ -189,15 +193,18 @@ async def send_schedule_message(update: Update, template: MessageTemplate | None
         return
     if not template:
         localizer = get_bot_localizer()
-        await update.effective_chat.send_message(
-            localizer.get("bot.templates.missing_schedule")
-        )
+        await update.effective_chat.send_message(localizer.get("bot.templates.missing_schedule"))
         return
-    await update.effective_chat.bot.copy_message(
-        chat_id=update.effective_chat.id,
-        from_chat_id=template.admin_chat_id,
-        message_id=template.message_id,
-    )
+    try:
+        await update.effective_chat.bot.copy_message(
+            chat_id=update.effective_chat.id,
+            from_chat_id=template.admin_chat_id,
+            message_id=template.message_id,
+        )
+    except Exception:
+        logger.exception("Failed to send schedule template message")
+        localizer = get_bot_localizer()
+        await update.effective_chat.send_message(localizer.get("bot.templates.missing_schedule"))
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -509,7 +516,8 @@ async def log_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         logger.info("Received update without user/chat/message (update_id=%s)", update.update_id)
         return
     logger.info(
-        "Update received: update_id=%s user_id=%s username=%s chat_id=%s has_message=%s has_text=%s",
+        "Update received: update_id=%s user_id=%s username=%s "
+        "chat_id=%s has_message=%s has_text=%s",
         update.update_id,
         user.id if user else None,
         user.username if user else None,
@@ -597,8 +605,15 @@ async def process_upload_database(
             user.job = row.get("job") or None
             user.career_path = row.get("career_path") or None
             status_value = row.get("status")
-            if status_value and status_value in UserStatus.__members__:
-                user.status = UserStatus[status_value]
+            if status_value:
+                normalized_status = status_value.strip().upper()
+                if normalized_status in UserStatus.__members__:
+                    user.status = UserStatus[normalized_status]
+                else:
+                    for candidate in UserStatus:
+                        if candidate.value.upper() == normalized_status:
+                            user.status = candidate
+                            break
             if row.get("notifications_enabled") is not None:
                 user.notifications_enabled = row["notifications_enabled"].lower() == "true"
             user.updated_at = datetime.utcnow()
@@ -656,9 +671,7 @@ async def set_welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.WELCOME)
     localizer = get_bot_localizer()
-    await update.effective_chat.send_message(
-        localizer.get("bot.admin.templates.awaiting_welcome")
-    )
+    await update.effective_chat.send_message(localizer.get("bot.admin.templates.awaiting_welcome"))
 
 
 async def set_schedule_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -670,9 +683,7 @@ async def set_schedule_message(update: Update, context: ContextTypes.DEFAULT_TYP
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.SCHEDULE)
     localizer = get_bot_localizer()
-    await update.effective_chat.send_message(
-        localizer.get("bot.admin.templates.awaiting_schedule")
-    )
+    await update.effective_chat.send_message(localizer.get("bot.admin.templates.awaiting_schedule"))
 
 
 async def urgent_notification(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -684,9 +695,7 @@ async def urgent_notification(update: Update, context: ContextTypes.DEFAULT_TYPE
     with session_scope() as session:
         set_admin_state(session, user.id, AdminStateType.BROADCAST_ALL)
     localizer = get_bot_localizer()
-    await update.effective_chat.send_message(
-        localizer.get("bot.admin.broadcast.awaiting_all")
-    )
+    await update.effective_chat.send_message(localizer.get("bot.admin.broadcast.awaiting_all"))
 
 
 async def urgent_notification_attendee(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -816,14 +825,18 @@ async def update_status_by_username(
     parts = update.message.text.split(maxsplit=1)
     if len(parts) < 2:
         localizer = get_bot_localizer()
-        await update.effective_chat.send_message(localizer.get("bot.admin.errors.nickname_required"))
+        await update.effective_chat.send_message(
+            localizer.get("bot.admin.errors.nickname_required")
+        )
         return
     nickname = parse_username(parts[1])
     with session_scope() as session:
         user = session.scalar(select(User).where(User.username.ilike(nickname)))
         if not user:
             localizer = get_bot_localizer()
-            await update.effective_chat.send_message(localizer.get("bot.admin.errors.user_not_found"))
+            await update.effective_chat.send_message(
+                localizer.get("bot.admin.errors.user_not_found")
+            )
             return
         user.status = status
         user.updated_at = datetime.utcnow()
@@ -855,7 +868,9 @@ async def update_status_by_id(
         user = session.scalar(select(User).where(User.telegram_id == user_id))
         if not user:
             localizer = get_bot_localizer()
-            await update.effective_chat.send_message(localizer.get("bot.admin.errors.user_not_found"))
+            await update.effective_chat.send_message(
+                localizer.get("bot.admin.errors.user_not_found")
+            )
             return
         user.status = status
         user.updated_at = datetime.utcnow()
@@ -903,7 +918,9 @@ async def set_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     parts = update.message.text.split(maxsplit=1)
     if len(parts) < 2:
         localizer = get_bot_localizer()
-        await update.effective_chat.send_message(localizer.get("bot.admin.errors.event_id_required"))
+        await update.effective_chat.send_message(
+            localizer.get("bot.admin.errors.event_id_required")
+        )
         return
     with session_scope() as session:
         state = get_or_create_event_state(session)
@@ -921,7 +938,9 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             get_bot_localizer().get("bot.admin.errors.unknown_or_forbidden")
         )
     else:
-        await update.effective_chat.send_message(get_bot_localizer().get("bot.admin.errors.unknown"))
+        await update.effective_chat.send_message(
+            get_bot_localizer().get("bot.admin.errors.unknown")
+        )
 
 
 def register(application: Application) -> None:
