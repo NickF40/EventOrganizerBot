@@ -313,5 +313,25 @@
       "limit_integer": "Limit must be an integer",
       "limit_non_negative": "Limit must be zero or greater"
     }
+  },
+  "bot": {
+    "status": {
+      "none": "No application",
+      "processing": "Application in progress",
+      "attendee": "Attendee",
+      "waitlist": "Waitlist"
+    },
+    "notifications": {
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "message": "[{status}] Notifications"
+    },
+    "admin": {
+      "errors": {
+        "unknown_or_forbidden": "Unknown command or has no permission"
+      }
+    }
   }
 }
