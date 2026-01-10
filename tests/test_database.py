@@ -1,9 +1,8 @@
 import importlib
 
+import app.config as config
 import pytest
 from sqlalchemy import text
-
-import app.config as config
 
 
 def _reload_database(tmp_path, monkeypatch):
