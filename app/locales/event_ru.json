@@ -1,0 +1,44 @@
+{
+  "buttons": {
+    "attend": "Принять участие",
+    "lecturer": "Подать заявку на доклад",
+    "showcase": "Показать проект"
+  },
+  "start": {
+    "new": "Привет, {name}!\n\nДобро пожаловать в бот Event Organizer Summit 2025. Выберите формат участия.",
+    "returning": "С возвращением, {name}!\n\nВы уже зарегистрированы на Event Organizer Summit 2025:\n{summary}\n\nИспользуйте /status для обновлений или выберите другой вариант ниже.",
+    "summary_item": "• {category}: {status}"
+  },
+  "help": {
+    "text": "Используйте /start, чтобы зарегистрироваться на Event Organizer Summit 2025, или /status, чтобы проверить статус заявки."
+  },
+  "registration": {
+    "callback": {
+      "attendee": "Спасибо! Заявка на участие в Event Organizer Summit 2025 получена. Скоро подтвердим.",
+      "lecturer": "Спасибо! Ваша заявка на доклад для Event Organizer Summit 2025 принята.",
+      "showcase": "Отлично! Заявка на демонстрацию проекта для Event Organizer Summit 2025 записана."
+    }
+  },
+  "admin_notifications": {
+    "approved": "Ваша заявка на Event Organizer Summit 2025 подтверждена. Ждем вас 18 октября в Берлине!",
+    "approved_priority": "Ваша заявка подтверждена с приоритетным доступом на Event Organizer Summit 2025. Ждем вас 18 октября в Берлине!",
+    "waitlisted": "Вы в листе ожидания Event Organizer Summit 2025. Сообщим, если появится место."
+  },
+  "bot": {
+    "messages": {
+      "event_started_broadcast": "Event Organizer Summit 2025 начался! Следите за обновлениями в боте."
+    },
+    "application": {
+      "confirmation": "Спасибо за регистрацию! Скоро пришлем детали по Event Organizer Summit 2025."
+    }
+  },
+  "admin": {
+    "dashboard": {
+      "title": "Обзор Event Organizer Summit 2025",
+      "subtitle": "Сводка по регистрациям, лимиту и рассылкам для саммита."
+    },
+    "posts": {
+      "title": "Запланированные посты для Event Organizer Summit 2025"
+    }
+  }
+}

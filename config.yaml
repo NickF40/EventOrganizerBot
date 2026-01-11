@@ -1,3 +1,5 @@
 admin_usernames: []
 database_url: sqlite:///./anonchatbot.db
 telegram_token: abcdefghijklmnopqrstuvwxyz
+locale: event_ru
+event_name: Event Organizer Summit 2025
