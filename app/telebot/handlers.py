@@ -169,7 +169,9 @@ def get_admin_state(session, admin_id: int) -> AdminState | None:
     return state
 
 
-async def send_welcome_message(update: Update, template: MessageTemplate | None) -> None:
+async def send_welcome_message(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, template: MessageTemplate | None
+) -> None:
     if not update.effective_chat:
         return
     if not template:
@@ -177,7 +179,7 @@ async def send_welcome_message(update: Update, template: MessageTemplate | None)
         await update.effective_chat.send_message(localizer.get("bot.templates.missing_welcome"))
         return
     try:
-        await update.effective_chat.bot.copy_message(
+        await context.bot.copy_message(
             chat_id=update.effective_chat.id,
             from_chat_id=template.admin_chat_id,
             message_id=template.message_id,
@@ -188,7 +190,9 @@ async def send_welcome_message(update: Update, template: MessageTemplate | None)
         await update.effective_chat.send_message(localizer.get("bot.templates.missing_welcome"))
 
 
-async def send_schedule_message(update: Update, template: MessageTemplate | None) -> None:
+async def send_schedule_message(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, template: MessageTemplate | None
+) -> None:
     if not update.effective_chat:
         return
     if not template:
@@ -196,7 +200,7 @@ async def send_schedule_message(update: Update, template: MessageTemplate | None
         await update.effective_chat.send_message(localizer.get("bot.templates.missing_schedule"))
         return
     try:
-        await update.effective_chat.bot.copy_message(
+        await context.bot.copy_message(
             chat_id=update.effective_chat.id,
             from_chat_id=template.admin_chat_id,
             message_id=template.message_id,
@@ -219,12 +223,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         template = get_template(session, "welcome_message")
 
     localizer = get_bot_localizer()
-    await send_welcome_message(update, template)
-    await context.bot.send_message(
-        chat_id=chat.id,
-        text=localizer.get("bot.messages.main_menu"),
-        reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
-    )
+    await send_welcome_message(update, context, template)
 
 
 async def show_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -396,15 +395,8 @@ async def schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     with session_scope() as session:
         db_user, _ = upsert_user(session, user)
-        event_state = get_or_create_event_state(session)
         template = get_template(session, "schedule_message")
-    localizer = get_bot_localizer()
-    await send_schedule_message(update, template)
-    await context.bot.send_message(
-        chat_id=chat.id,
-        text=localizer.get("bot.messages.main_menu"),
-        reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
-    )
+    await send_schedule_message(update, context, template)
 
 
 async def feedback_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -488,11 +480,19 @@ async def handle_admin_payload(update: Update, context: ContextTypes.DEFAULT_TYP
             return
         message = update.message
         if state.waiting_for == AdminStateType.WELCOME:
+            if message.text and message.text.startswith("/"):
+                await update.message.reply_text(localizer.get("bot.admin.templates.awaiting_welcome"))
+                return
             set_template(session, "welcome_message", message.chat_id, message.message_id)
             clear_admin_state(session, user.id)
             await update.message.reply_text(localizer.get("bot.admin.templates.saved_welcome"))
             return
         if state.waiting_for == AdminStateType.SCHEDULE:
+            if message.text and message.text.startswith("/"):
+                await update.message.reply_text(
+                    localizer.get("bot.admin.templates.awaiting_schedule")
+                )
+                return
             set_template(session, "schedule_message", message.chat_id, message.message_id)
             clear_admin_state(session, user.id)
             await update.message.reply_text(localizer.get("bot.admin.templates.saved_schedule"))
