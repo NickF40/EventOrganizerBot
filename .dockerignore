@@ -1,0 +1,13 @@
+# Ignore common developer files and directories
+.git
+.gitignore
+.vscode/
+.venv/
+
+# Ignore dependency and build directories
+__pycache__/
+dist/
+
+# Ignore sensitive files and logs
+.env
+*.log
