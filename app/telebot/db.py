@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy import select
@@ -141,6 +142,21 @@ def _parse_bool(value: str | None) -> bool | None:
     return None
 
 
+def _normalize_friend_usernames(value: str | None) -> str | None:
+    if not value:
+        return None
+    tokens = re.split(r"[,\s]+", value)
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for token in tokens:
+        item = token.lstrip("@").strip().lower()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        normalized.append(item)
+    return ",".join(normalized) if normalized else None
+
+
 def _build_user_from_row(row: dict[str, str]) -> User | None:
     user_id_value = row.get("user_id")
     if not user_id_value:
@@ -163,12 +179,14 @@ def _build_user_from_row(row: dict[str, str]) -> User | None:
         )
         return None
     notifications_enabled = _parse_bool(row.get("notifications_enabled"))
+    friend_usernames = _normalize_friend_usernames(row.get("friend_usernames"))
     return User(
         telegram_id=telegram_id,
         username=username,
         full_name=row.get("full_name") or None,
         job=row.get("job") or None,
         career_path=row.get("career_path") or None,
+        friend_usernames=friend_usernames,
         status=status or UserStatus.NONE,
         notifications_enabled=notifications_enabled
         if notifications_enabled is not None

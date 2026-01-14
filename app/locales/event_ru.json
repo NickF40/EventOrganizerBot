@@ -25,10 +25,22 @@
     "waitlisted": "Вы в листе ожидания Event Organizer Summit 2025. Сообщим, если появится место."
   },
   "bot": {
+    "menu": {
+      "application": "Заявка",
+      "cancel": "Отмена заявки",
+      "feedback": "Отзыв",
+      "schedule": "Афиша",
+      "status": "Статус",
+      "notifications": "Нотификации",
+      "home": "На главную"
+    },
     "messages": {
-      "event_started_broadcast": "Event Organizer Summit 2025 начался! Следите за обновлениями в боте."
+      "event_started_broadcast": "Event Organizer Summit 2025 начался! Следите за обновлениями в боте.",
+      "friend_attending": "Ваш друг {friend} уже участвует!",
+      "friend_attending_unknown": "Кто-то"
     },
     "application": {
+      "ask_friends": "Есть друзья, которые тоже придут? Напишите их username ниже.",
       "confirmation": "Спасибо за регистрацию! Скоро пришлем детали по Event Organizer Summit 2025."
     }
   },

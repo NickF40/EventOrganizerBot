@@ -24,7 +24,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 Base = declarative_base()
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def ensure_schema() -> None:
