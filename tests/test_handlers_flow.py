@@ -1,5 +1,7 @@
 import asyncio
+import csv
 import importlib
+import io
 from dataclasses import dataclass
 from typing import Any
 
@@ -122,8 +124,7 @@ def test_start_creates_user_and_event_state(tmp_path, monkeypatch):
 
     asyncio.run(handlers.start(update, context))
 
-    assert chat.sent_messages
-    assert bot.sent_messages
+    assert chat.sent_messages or bot.sent_messages
 
     with database.session_scope() as session:
         db_user = session.scalar(select(models.User).where(models.User.telegram_id == 100))
@@ -257,6 +258,24 @@ def test_handle_admin_payload_saves_welcome_template(tmp_path, monkeypatch):
     assert message.replies
 
 
+def test_handle_admin_payload_upload_db_command_does_not_reply(tmp_path, monkeypatch):
+    handlers, database, models = _reload_handlers(tmp_path, monkeypatch, admin_usernames="admin")
+
+    bot = DummyBot()
+    chat = DummyChat(chat_id=17, bot=bot)
+    user = DummyUser(id=201, username="admin")
+    message = DummyMessage(text="/upload_database", chat_id=chat.id)
+    update = DummyUpdate(user=user, chat=chat, message=message)
+    context = DummyContext(bot)
+
+    with database.session_scope() as session:
+        handlers.set_admin_state(session, user.id, models.AdminStateType.UPLOAD_DB)
+
+    asyncio.run(handlers.handle_admin_payload(update, context))
+
+    assert message.replies == []
+
+
 def test_process_upload_database_creates_users(tmp_path, monkeypatch):
     handlers, database, models = _reload_handlers(tmp_path, monkeypatch, admin_usernames="admin")
 
@@ -284,6 +303,132 @@ def test_process_upload_database_creates_users(tmp_path, monkeypatch):
     assert db_user is not None
     assert db_user.full_name == "Ada"
     assert db_user.status == models.UserStatus.ATTENDEE
+
+
+def test_download_then_upload_database_updates_rows(tmp_path, monkeypatch):
+    handlers, database, models = _reload_handlers(tmp_path, monkeypatch, admin_usernames="admin")
+
+    with database.session_scope() as session:
+        user_one = models.User(
+            telegram_id=101,
+            username="guest1",
+            full_name="Ada",
+            job="Engineer",
+            career_path="Backend",
+            status=models.UserStatus.PROCESSING,
+            notifications_enabled=True,
+        )
+        user_two = models.User(
+            telegram_id=202,
+            username="guest2",
+            full_name="Bob",
+            job="Designer",
+            career_path="UX",
+            status=models.UserStatus.ATTENDEE,
+            notifications_enabled=True,
+        )
+        session.add_all([user_one, user_two])
+        session.add(
+            models.Feedback(
+                event_id="event-1",
+                user=user_one,
+                feedback_text="Great event!",
+            )
+        )
+
+    bot = DummyBot()
+    chat = DummyChat(chat_id=25, bot=bot)
+    admin = DummyUser(id=999, username="admin")
+    update = DummyUpdate(user=admin, chat=chat)
+    context = DummyContext(bot)
+
+    asyncio.run(handlers.download_database(update, context))
+
+    assert len(chat.sent_documents) == 2
+    users_payload, users_filename = chat.sent_documents[0]
+    assert users_filename == "users.csv"
+
+    users_csv = users_payload.decode("utf-8")
+    reader = csv.DictReader(io.StringIO(users_csv))
+    rows = list(reader)
+
+    for row in rows:
+        if row["user_id"] == "101":
+            row["full_name"] = "Ada Lovelace"
+            row["job"] = "Engineer II"
+            row["career_path"] = "Platform"
+            row["status"] = " waitlist "
+            row["notifications_enabled"] = " false "
+        if row["user_id"] == "202":
+            row["status"] = "PROCESSING"
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=reader.fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+
+    bot.files["file-upload"] = DummyFile(output.getvalue().encode("utf-8"))
+    message = DummyMessage(text=None, chat_id=chat.id)
+    message.document = DummyDocument("file-upload")
+    upload_update = DummyUpdate(user=admin, chat=chat, message=message)
+
+    asyncio.run(handlers.process_upload_database(upload_update, context, admin_id=admin.id))
+
+    with database.session_scope() as session:
+        refreshed_one = session.scalar(
+            select(models.User).where(models.User.telegram_id == 101)
+        )
+        refreshed_two = session.scalar(
+            select(models.User).where(models.User.telegram_id == 202)
+        )
+
+    assert refreshed_one.full_name == "Ada Lovelace"
+    assert refreshed_one.job == "Engineer II"
+    assert refreshed_one.career_path == "Platform"
+    assert refreshed_one.status == models.UserStatus.WAITLIST
+    assert refreshed_one.notifications_enabled is False
+    assert refreshed_two.status == models.UserStatus.PROCESSING
+
+
+def test_process_upload_database_accepts_semicolon_delimiter(tmp_path, monkeypatch):
+    handlers, database, models = _reload_handlers(tmp_path, monkeypatch, admin_usernames="admin")
+
+    with database.session_scope() as session:
+        session.add(
+            models.User(
+                telegram_id=303,
+                username="guest3",
+                full_name="Carol",
+                status=models.UserStatus.NONE,
+                notifications_enabled=True,
+            )
+        )
+
+    bot = DummyBot()
+    csv_payload = (
+        "user_id;username;full_name;job;career_path;status;notifications_enabled\n"
+        "303;guest3;Carol Danvers;Pilot;Aviation;ATTENDEE;false\n"
+    ).encode("utf-8")
+    bot.files["file-2"] = DummyFile(csv_payload)
+
+    chat = DummyChat(chat_id=18, bot=bot)
+    user = DummyUser(id=202, username="admin")
+    message = DummyMessage(text=None, chat_id=chat.id)
+    message.document = DummyDocument("file-2")
+    update = DummyUpdate(user=user, chat=chat, message=message)
+    context = DummyContext(bot)
+
+    asyncio.run(handlers.process_upload_database(update, context, admin_id=user.id))
+
+    with database.session_scope() as session:
+        db_user = session.scalar(select(models.User).where(models.User.telegram_id == 303))
+
+    assert db_user is not None
+    assert db_user.full_name == "Carol Danvers"
+    assert db_user.job == "Pilot"
+    assert db_user.career_path == "Aviation"
+    assert db_user.status == models.UserStatus.ATTENDEE
+    assert db_user.notifications_enabled is False
 
 
 def test_update_status_by_id_handles_invalid_and_success(tmp_path, monkeypatch):

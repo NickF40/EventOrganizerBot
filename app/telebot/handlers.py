@@ -2,9 +2,10 @@ import asyncio
 import csv
 import io
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import (
     Application,
@@ -18,14 +19,17 @@ from telegram.ext import (
 from app.config import get_settings
 from app.database import session_scope
 from app.localization import DEFAULT_LOCALE, get_localizer
-from app.models import (
-    AdminState,
-    AdminStateType,
-    EventState,
-    Feedback,
-    MessageTemplate,
-    User,
-    UserStatus,
+from app.models import AdminStateType, Feedback, MessageTemplate, User, UserStatus
+from app.telebot.db import (
+    clear_admin_state,
+    get_admin_state,
+    get_or_create_event_state,
+    get_template,
+    is_admin,
+    process_upload_database,
+    set_admin_state,
+    set_template,
+    upsert_user,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,13 +56,6 @@ APPLICATION_JOB = 2
 APPLICATION_CAREER = 3
 
 FEEDBACK_TEXT = 10
-
-
-def is_admin(username: str | None) -> bool:
-    if not username:
-        return False
-    settings = get_settings()
-    return username.lstrip("@").lower() in settings.admin_username_set
 
 
 def build_main_keyboard(status: UserStatus, event_started: bool) -> ReplyKeyboardMarkup:
@@ -97,76 +94,6 @@ def status_text(status: UserStatus) -> str:
         UserStatus.WAITLIST: "bot.status.waitlist",
     }
     return localizer.get(mapping[status])
-
-
-def get_or_create_event_state(session) -> EventState:
-    state = session.scalar(select(EventState).limit(1))
-    if state:
-        return state
-    state = EventState(event_started=False, current_event_id="default")
-    session.add(state)
-    session.flush()
-    return state
-
-
-def upsert_user(session, tg_user) -> tuple[User, bool]:
-    user = session.scalar(select(User).where(User.telegram_id == tg_user.id))
-    is_new = False
-    if not user:
-        user = User(
-            telegram_id=tg_user.id,
-            username=tg_user.username,
-            status=UserStatus.NONE,
-            notifications_enabled=True,
-            created_at=datetime.utcnow(),
-        )
-        session.add(user)
-        session.flush()
-        is_new = True
-    user.username = tg_user.username
-    user.updated_at = datetime.utcnow()
-    return user, is_new
-
-
-def get_template(session, name: str) -> MessageTemplate | None:
-    return session.scalar(select(MessageTemplate).where(MessageTemplate.name == name))
-
-
-def set_template(session, name: str, chat_id: int, message_id: int) -> None:
-    template = get_template(session, name)
-    if template:
-        template.admin_chat_id = chat_id
-        template.message_id = message_id
-        return
-    template = MessageTemplate(name=name, admin_chat_id=chat_id, message_id=message_id)
-    session.add(template)
-
-
-def set_admin_state(
-    session, admin_id: int, waiting_for: AdminStateType, ttl_seconds: int = 300
-) -> None:
-    session.query(AdminState).where(AdminState.admin_id == admin_id).delete()
-    state = AdminState(
-        admin_id=admin_id,
-        waiting_for=waiting_for,
-        ttl_seconds=ttl_seconds,
-        created_at=datetime.utcnow(),
-    )
-    session.add(state)
-
-
-def clear_admin_state(session, admin_id: int) -> None:
-    session.query(AdminState).where(AdminState.admin_id == admin_id).delete()
-
-
-def get_admin_state(session, admin_id: int) -> AdminState | None:
-    state = session.scalar(select(AdminState).where(AdminState.admin_id == admin_id))
-    if not state:
-        return None
-    if datetime.utcnow() > state.created_at + timedelta(seconds=state.ttl_seconds):
-        session.delete(state)
-        return None
-    return state
 
 
 async def send_welcome_message(
@@ -474,9 +401,12 @@ async def handle_admin_payload(update: Update, context: ContextTypes.DEFAULT_TYP
         localizer = get_bot_localizer()
         if state.waiting_for == AdminStateType.UPLOAD_DB:
             if not update.message.document:
+                if update.message.text and update.message.text.startswith("/"):
+                    return
                 await update.message.reply_text(localizer.get("bot.admin.errors.expected_csv"))
                 return
             await process_upload_database(update, context, state.admin_id)
+            await update.message.reply_text(localizer.get("bot.admin.database.updated"))
             return
         message = update.message
         if state.waiting_for == AdminStateType.WELCOME:
@@ -570,55 +500,6 @@ async def broadcast_text(bot, text: str) -> None:
             await bot.send_message(chat_id=user.telegram_id, text=text)
         except Exception:
             logger.exception("Failed to send broadcast to %s", user.telegram_id)
-
-
-async def process_upload_database(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, admin_id: int
-) -> None:
-    if not update.message or not update.message.document:
-        return
-    file = await context.bot.get_file(update.message.document.file_id)
-    content = await file.download_as_bytearray()
-    stream = io.StringIO(content.decode("utf-8"))
-    reader = csv.DictReader(stream)
-    with session_scope() as session:
-        clear_admin_state(session, admin_id)
-        for row in reader:
-            if not row.get("user_id"):
-                continue
-            username = row.get("username") or ""
-            if is_admin(username):
-                continue
-            telegram_id = int(row["user_id"])
-            user = session.scalar(select(User).where(User.telegram_id == telegram_id))
-            if not user:
-                user = User(
-                    telegram_id=telegram_id,
-                    notifications_enabled=True,
-                    status=UserStatus.NONE,
-                    created_at=datetime.utcnow(),
-                )
-                session.add(user)
-                session.flush()
-            user.username = row.get("username") or user.username
-            user.full_name = row.get("full_name") or None
-            user.job = row.get("job") or None
-            user.career_path = row.get("career_path") or None
-            status_value = row.get("status")
-            if status_value:
-                normalized_status = status_value.strip().upper()
-                if normalized_status in UserStatus.__members__:
-                    user.status = UserStatus[normalized_status]
-                else:
-                    for candidate in UserStatus:
-                        if candidate.value.upper() == normalized_status:
-                            user.status = candidate
-                            break
-            if row.get("notifications_enabled") is not None:
-                user.notifications_enabled = row["notifications_enabled"].lower() == "true"
-            user.updated_at = datetime.utcnow()
-    localizer = get_bot_localizer()
-    await update.message.reply_text(localizer.get("bot.admin.database.updated"))
 
 
 def ensure_admin(update: Update) -> bool:
@@ -731,7 +612,11 @@ async def download_database(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
     with session_scope() as session:
         users = session.execute(select(User)).scalars().all()
-        feedback = session.execute(select(Feedback)).scalars().all()
+        feedback = (
+            session.execute(select(Feedback).options(selectinload(Feedback.user)))
+            .scalars()
+            .all()
+        )
     user_stream = io.StringIO()
     user_writer = csv.writer(user_stream)
     user_writer.writerow(
