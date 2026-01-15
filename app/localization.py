@@ -5,7 +5,7 @@ from functools import lru_cache
 from importlib import resources
 from typing import Any
 
-DEFAULT_LOCALE = "en"
+DEFAULT_LOCALE = "ru"
 logger = logging.getLogger(__name__)
 
 

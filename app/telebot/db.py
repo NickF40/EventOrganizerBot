@@ -188,9 +188,7 @@ def _build_user_from_row(row: dict[str, str]) -> User | None:
         career_path=row.get("career_path") or None,
         friend_usernames=friend_usernames,
         status=status or UserStatus.NONE,
-        notifications_enabled=notifications_enabled
-        if notifications_enabled is not None
-        else True,
+        notifications_enabled=notifications_enabled if notifications_enabled is not None else True,
     )
 
 
@@ -274,9 +272,7 @@ async def process_upload_database(
                 continue
             users_to_insert.append(csv_user)
         if not users_to_insert:
-            logger.warning(
-                "No users parsed from upload; skipping delete to avoid empty reload"
-            )
+            logger.warning("No users parsed from upload; skipping delete to avoid empty reload")
             return
         logger.info("Deleting existing feedback and users before upload")
         session.query(Feedback).delete()
