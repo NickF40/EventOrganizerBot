@@ -1,6 +1,5 @@
 import json
 import logging
-
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
@@ -58,13 +57,13 @@ def _load_messages(locale: str) -> dict[str, Any]:
 
 @lru_cache(maxsize=None)
 def get_localizer(locale: str) -> Localizer:
-    logger.info('get_localizer: locale chosen is %s', locale)
+    logger.info("get_localizer: locale chosen is %s", locale)
     try:
         messages = _load_messages(locale)
     except FileNotFoundError:
         if locale == DEFAULT_LOCALE:
             raise
-        logger.error('Locale %s not found, using default one', locale)
+        logger.error("Locale %s not found, using default one", locale)
         return get_localizer(DEFAULT_LOCALE)
 
     fallback = get_localizer(DEFAULT_LOCALE) if locale != DEFAULT_LOCALE else None

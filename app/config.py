@@ -24,9 +24,7 @@ class Settings(BaseSettings):
     basic_auth_username: str = Field(default="admin", env="ADMIN_BASIC_AUTH_USERNAME")
     basic_auth_password: str = Field(default="admin", env="ADMIN_BASIC_AUTH_PASSWORD")
     scheduler_interval_seconds: int = Field(default=60, env="SCHEDULER_INTERVAL_SECONDS")
-    allow_admin_upload_overwrite: bool = Field(
-        default=False, env="ALLOW_ADMIN_UPLOAD_OVERWRITE"
-    )
+    allow_admin_upload_overwrite: bool = Field(default=False, env="ALLOW_ADMIN_UPLOAD_OVERWRITE")
 
     database_url: str = Field(
         default="sqlite:///./anonchatbot.db",

@@ -78,6 +78,22 @@ def home_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([[MENU_HOME]], resize_keyboard=True)
 
 
+def _persist_application(
+    session,
+    user,
+    context: ContextTypes.DEFAULT_TYPE,
+    friend_usernames: list[str],
+) -> tuple[User, "EventState"]:
+    db_user, _ = upsert_user(session, user)
+    db_user.full_name = context.user_data.get("full_name")
+    db_user.job = context.user_data.get("job")
+    db_user.career_path = context.user_data.get("career_path")
+    db_user.friend_usernames = serialize_friend_usernames(friend_usernames)
+    db_user.status = UserStatus.PROCESSING
+    event_state = get_or_create_event_state(session)
+    return db_user, event_state
+
+
 def notifications_text(enabled: bool) -> str:
     localizer = get_bot_localizer()
     status_key = (
@@ -132,6 +148,24 @@ def deserialize_friend_usernames(value: str | None) -> set[str]:
     return {item for item in usernames if item}
 
 
+async def broadcast_text(bot, text: str) -> None:
+    with session_scope() as session:
+        users = session.execute(select(User)).scalars().all()
+        event_state = get_or_create_event_state(session)
+        event_started = event_state.event_started
+    for user in users:
+        if not user.telegram_id:
+            continue
+        try:
+            await bot.send_message(
+                chat_id=user.telegram_id,
+                text=text,
+                reply_markup=build_main_keyboard(user.status, event_started),
+            )
+        except Exception:
+            logger.exception("Failed to broadcast message to %s", user.telegram_id)
+
+
 async def send_welcome_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE, template: MessageTemplate | None
 ) -> None:
@@ -182,6 +216,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     with session_scope() as session:
         db_user, _ = upsert_user(session, user)
+        get_or_create_event_state(session)
         template = get_template(session, "welcome_message")
         friend_matches: list[User] = []
         normalized_username = normalize_friend_username(user.username or "")
@@ -320,9 +355,19 @@ async def application_career(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not update.message or not update.message.text:
         return APPLICATION_CAREER
     context.user_data["career_path"] = update.message.text.strip()
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat:
+        return ConversationHandler.END
+    with session_scope() as session:
+        db_user, event_state = _persist_application(session, user, context, [])
     localizer = get_bot_localizer()
-    await update.message.reply_text(localizer.get("bot.application.ask_friends"))
-    return APPLICATION_FRIENDS
+    await chat.send_message(
+        localizer.get("bot.application.confirmation"),
+        reply_markup=build_main_keyboard(db_user.status, event_state.event_started),
+    )
+    context.user_data.clear()
+    return ConversationHandler.END
 
 
 async def application_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -334,13 +379,7 @@ async def application_friends(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not user or not chat:
         return ConversationHandler.END
     with session_scope() as session:
-        db_user, _ = upsert_user(session, user)
-        db_user.full_name = context.user_data.get("full_name")
-        db_user.job = context.user_data.get("job")
-        db_user.career_path = context.user_data.get("career_path")
-        db_user.friend_usernames = serialize_friend_usernames(friend_usernames)
-        db_user.status = UserStatus.PROCESSING
-        event_state = get_or_create_event_state(session)
+        db_user, event_state = _persist_application(session, user, context, friend_usernames)
     localizer = get_bot_localizer()
     await chat.send_message(
         localizer.get("bot.application.confirmation"),
@@ -817,12 +856,6 @@ async def update_status_by_id(
                 localizer.get("bot.admin.errors.user_not_found")
             )
             return
-        if user.status == UserStatus.NONE:
-            localizer = get_bot_localizer()
-            await update.effective_chat.send_message(
-                localizer.get("bot.admin.errors.application_not_found")
-            )
-            return
         user.status = status
         user.updated_at = datetime.utcnow()
         if status == UserStatus.ATTENDEE:
@@ -844,21 +877,10 @@ async def event_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 )
             return
         state.event_started = True
-        users = session.execute(select(User)).scalars().all()
     localizer = get_bot_localizer()
     if update.effective_chat:
         await update.effective_chat.send_message(localizer.get("bot.admin.event_started"))
-    for user in users:
-        if not user.telegram_id:
-            continue
-        try:
-            await context.bot.send_message(
-                chat_id=user.telegram_id,
-                text=localizer.get("bot.messages.event_started_broadcast"),
-                reply_markup=build_main_keyboard(user.status, True),
-            )
-        except Exception:
-            logger.exception("Failed to send event started broadcast to %s", user.telegram_id)
+    await broadcast_text(context.bot, localizer.get("bot.messages.event_started_broadcast"))
 
 
 async def event_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -867,20 +889,9 @@ async def event_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     with session_scope() as session:
         state = get_or_create_event_state(session)
         state.event_started = False
-        users = session.execute(select(User)).scalars().all()
     localizer = get_bot_localizer()
     if update.effective_chat:
-        for user in users:
-            if not user.telegram_id:
-                continue
-            try:
-                await context.bot.send_message(
-                    chat_id=user.telegram_id,
-                    text=localizer.get("bot.admin.event_cancelled"),
-                    reply_markup=build_main_keyboard(user.status, False),
-                )
-            except Exception:
-                logger.exception("Failed to send event cancelled broadcast to %s", user.telegram_id)
+        await broadcast_text(context.bot, localizer.get("bot.admin.event_cancelled"))
 
 
 async def set_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
