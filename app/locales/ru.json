@@ -75,13 +75,16 @@
     },
     "messages": {
       "main_menu": "Главное меню",
-      "event_started_broadcast": "Мероприятие началось! Следите за обновлениями в боте."
+      "event_started_broadcast": "Мероприятие началось! Следите за обновлениями в боте.",
+      "friend_attending": "Ваш друг {friend} уже участвует!",
+      "friend_attending_unknown": "Кто-то"
     },
     "application": {
       "already_created": "Заявка уже создана.",
       "ask_full_name": "Как вас зовут? (Имя Фамилия)",
       "ask_job": "Кем и где вы работаете? (позиция, компания)",
       "ask_career": "Какой путь... (1)... (2)... В ответ напишите цифру",
+      "ask_friends": "Есть друзья, которые тоже придут? Напишите их username ниже.",
       "confirmation": "Спасибо за вашу заявку! Ожидайте новостей по мероприятию.",
       "cancelled": "Заявка отменена."
     },
@@ -96,6 +99,7 @@
         "unknown": "Неизвестная команда",
         "nickname_required": "Нужен nickname.",
         "user_not_found": "Пользователь не найден.",
+        "application_not_found": "У пользователя нет заявки.",
         "user_id_required": "Нужен user_id.",
         "user_id_invalid": "Неверный user_id.",
         "event_id_required": "Нужен id."

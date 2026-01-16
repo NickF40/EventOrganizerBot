@@ -38,3 +38,13 @@ jobs:
 
       - name: Coverage
         run: uv run pytest --cov=app --cov-report=term --cov-report=xml --cov-fail-under=70
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t event-organizer-bot .
