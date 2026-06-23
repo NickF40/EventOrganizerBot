@@ -182,6 +182,13 @@ def test_update_timezone_and_limit(tmp_path, monkeypatch):
     )
     assert response.status_code == 303
 
+    response = client.post(
+        "/admin/event/limit",
+        auth=("admin", "secret"),
+        data={"limit": "-1"},
+    )
+    assert response.status_code == 400
+
 
 def test_registration_updates_and_manual_entry(tmp_path, monkeypatch):
     client, database, models, settings = _setup_admin_app(tmp_path, monkeypatch)
@@ -258,3 +265,61 @@ def test_registration_updates_and_manual_entry(tmp_path, monkeypatch):
         manual = session.scalar(select(models.User).where(models.User.display_name == "Manual"))
         assert manual is not None
         assert manual.is_manual is True
+
+
+def test_registration_lists_and_urgent(tmp_path, monkeypatch):
+    client, database, models, settings = _setup_admin_app(tmp_path, monkeypatch)
+
+    with database.session_scope() as session:
+        event = models.Event(name=settings.event_name, capacity=5)
+        session.add(event)
+        session.flush()
+
+        user = models.User(telegram_id=999, username="notify", notifications_enabled=True)
+        session.add(user)
+        session.flush()
+
+        session.add_all(
+            [
+                models.Registration(
+                    event_id=event.id,
+                    user_id=user.id,
+                    category=models.RegistrationCategory.ATTENDEE,
+                    status=models.RegistrationStatus.APPROVED,
+                    is_priority=True,
+                ),
+                models.Registration(
+                    event_id=event.id,
+                    user_id=user.id,
+                    category=models.RegistrationCategory.LECTURER,
+                    status=models.RegistrationStatus.WAITLISTED,
+                ),
+                models.Registration(
+                    event_id=event.id,
+                    user_id=user.id,
+                    category=models.RegistrationCategory.SHOWCASE,
+                    status=models.RegistrationStatus.REJECTED,
+                ),
+            ]
+        )
+
+    for path in [
+        "/admin/registrations",
+        "/admin/registrations/approved",
+        "/admin/registrations/approved-priority",
+        "/admin/registrations/waitlisted",
+        "/admin/registrations/declined",
+    ]:
+        response = client.get(path, auth=("admin", "secret"))
+        assert response.status_code == 200
+
+    response = client.get("/admin/urgent", auth=("admin", "secret"))
+    assert response.status_code == 200
+
+    response = client.post(
+        "/admin/urgent",
+        auth=("admin", "secret"),
+        data={"message": "Emergency"},
+    )
+    assert response.status_code == 200
+    assert client.app.state.bot.sent_messages == [(999, "Emergency")]

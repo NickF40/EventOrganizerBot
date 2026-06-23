@@ -1,14 +1,12 @@
-"""Simple localization helper backed by JSON message catalogs."""
-
-from __future__ import annotations
-
 import json
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
 from typing import Any
 
-DEFAULT_LOCALE = "en"
+DEFAULT_LOCALE = "ru"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -59,11 +57,13 @@ def _load_messages(locale: str) -> dict[str, Any]:
 
 @lru_cache(maxsize=None)
 def get_localizer(locale: str) -> Localizer:
+    logger.info("get_localizer: locale chosen is %s", locale)
     try:
         messages = _load_messages(locale)
     except FileNotFoundError:
         if locale == DEFAULT_LOCALE:
             raise
+        logger.error("Locale %s not found, using default one", locale)
         return get_localizer(DEFAULT_LOCALE)
 
     fallback = get_localizer(DEFAULT_LOCALE) if locale != DEFAULT_LOCALE else None

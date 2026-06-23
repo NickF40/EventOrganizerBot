@@ -45,6 +45,7 @@ class User(Base):
     full_name = Column(String(255), nullable=True)
     job = Column(String(255), nullable=True)
     career_path = Column(String(255), nullable=True)
+    friend_usernames = Column(Text, nullable=True)
     status = Column(Enum(UserStatus), default=UserStatus.NONE, nullable=False)
     notifications_enabled = Column(Boolean, default=True, nullable=False)
     is_subscribed = Column(Boolean, default=True, nullable=False)
